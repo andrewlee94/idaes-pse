@@ -13,7 +13,7 @@
 
 from pandas import DataFrame
 from collections import OrderedDict
-from pyomo.environ import value
+from pyomo.environ import value, units
 from pyomo.network import Arc, Port
 
 from idaes.core.util.exceptions import ConfigurationError
@@ -340,3 +340,25 @@ def generate_table(blocks, attributes, heading=None, exception=True):
             row[i] = v
         st.loc[key] = row
     return st
+
+
+def str_with_units(comp, formating="{:#.5g}"):
+    """
+    Method to return a string containing the value and units of a Pyomo
+    component.
+
+    Args:
+        comp - Pyomo component to be converted to a string
+        formating - Python formating string for outputing component value
+                  default = `{:#.5g}'
+
+    Returns:
+        string
+    """
+    val = formating.format(value(comp))
+    comp_units = units.get_units(comp)
+
+    if comp_units is None:
+        return val
+    else:
+        return val+" "+str(comp_units)

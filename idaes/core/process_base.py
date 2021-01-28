@@ -29,7 +29,8 @@ from idaes.core.process_block import declare_process_block_class
 from idaes.core.util.exceptions import (ConfigurationError,
                                         DynamicError,
                                         PropertyPackageError)
-from idaes.core.util.tables import stream_table_dataframe_to_string
+from idaes.core.util.tables import (
+    stream_table_dataframe_to_string, str_with_units)
 from idaes.core.util.model_statistics import (degrees_of_freedom,
                                               number_variables,
                                               number_activated_constraints,
@@ -277,10 +278,9 @@ class ProcessBlockData(_BlockData):
                         prefix+tab,
                         ((k, v) for k, v in performance["vars"].items()),
                         ("Value", "Fixed", "Bounds"),
-                        lambda k, v: [
-                                "{:#.5g}".format(value(v)),
-                                v.fixed,
-                                v.bounds])
+                        lambda k, v: [str_with_units(v),
+                                      v.fixed,
+                                      v.bounds])
 
             if "exprs" in performance.keys() and len(performance["exprs"]) > 0:
                 ostream.write("\n")
@@ -291,8 +291,7 @@ class ProcessBlockData(_BlockData):
                         prefix+tab,
                         ((k, v) for k, v in performance["exprs"].items()),
                         ("Value",),
-                        lambda k, v: [
-                                "{:#.5g}".format(value(v))])
+                        lambda k, v: [str_with_units(v)])
 
             if ("params" in performance.keys() and
                     len(performance["params"]) > 0):
@@ -304,7 +303,7 @@ class ProcessBlockData(_BlockData):
                         prefix+tab,
                         ((k, v) for k, v in performance["params"].items()),
                         ("Value", "Mutable"),
-                        lambda k, v: [value(v),
+                        lambda k, v: [str_with_units(v),
                                       not v.is_constant()])
 
         if stream_table is not None:
@@ -324,7 +323,8 @@ class ProcessBlockData(_BlockData):
         return None
 
     def serialize_contents(self, time_point=0):
-        return self._get_performance_contents(time_point), self._get_stream_table_contents(time_point)
+        return (self._get_performance_contents(time_point),
+                self._get_stream_table_contents(time_point))
 
     def _setup_dynamics(self):
         """
