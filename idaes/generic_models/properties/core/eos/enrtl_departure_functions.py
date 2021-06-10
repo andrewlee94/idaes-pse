@@ -22,8 +22,11 @@ Reference:
 Song, Y. and Chen, C.-C., Symmetric Electrolyte Nonrandom Two-Liquid Activity
 Coefficient Model, Ind. Eng. Chem. Res., 2009, Vol. 48, pgs. 7788–7797
 """
-from pyomo.environ import units as pyunits
+from pyomo.environ import exp, log, units as pyunits
+
 from idaes.core.util.constants import Constants
+from idaes.generic_models.properties.core.eos.enrtl import (
+    DefaultAlphaRule, DefaultTauRule)
 from idaes.generic_models.properties.core.generic.utility import (
     get_component_object as cobj)
 
@@ -94,3 +97,162 @@ def dA_dt(b, pname):
              (1/(eps*eps0*Constants.boltzmann_constant*b.temperature))**(5/2))
 
     return (1/3)*(x*dy_dT + dx_dT*y)
+
+
+def dalpha_dT(b, pname, i, j):
+    # Calculate dG/dT terms
+    Y = getattr(b, pname+"_Y")
+    molecular_set = b.params.solvent_set | b.params.solute_set
+    pobj = b.params.get_phase(pname)
+
+    # Check options for alpha rule
+    if (pobj.config.equation_of_state_options is not None and
+            "alpha_rule" in pobj.config.equation_of_state_options):
+        alpha_dT = pobj.config.equation_of_state_options[
+            "alpha_rule"].dT_expression
+    else:
+        alpha_dT = DefaultAlphaRule.dT_expression
+
+    if ((i in molecular_set) and (j in molecular_set)):
+        # alpha equal user provided parameters
+        return alpha_dT(b, pobj, i, j, b.temperature)
+    elif (i in b.params.cation_set and j in molecular_set):
+        # FRom Eqn 32
+        return sum(Y[k]*alpha_dT(b, pobj, (i+", "+k), j, b.temperature)
+                   for k in b.params.anion_set)
+    elif (j in b.params.cation_set and i in molecular_set):
+        # From Eqn 32
+        return sum(Y[k]*alpha_dT(b, pobj, (j+", "+k), i, b.temperature)
+                   for k in b.params.anion_set)
+    elif (i in b.params.anion_set and j in molecular_set):
+        # From Eqn 33
+        return sum(Y[k]*alpha_dT(b, pobj, (k+", "+i), j, b.temperature)
+                   for k in b.params.cation_set)
+    elif (j in b.params.anion_set and i in molecular_set):
+        # From Eqn 33
+        return sum(Y[k]*alpha_dT(b, pobj, (k+", "+j), i, b.temperature)
+                   for k in b.params.cation_set)
+    elif (i in b.params.cation_set and j in b.params.anion_set):
+        # From Eqn 34
+        if len(b.params.cation_set) > 1:
+            return sum(Y[k]*alpha_dT(
+                b, pobj, (i+", "+j), (k+", "+j), b.temperature)
+                       for k in b.params.cation_set)
+        else:
+            return 0
+    elif (i in b.params.anion_set and j in b.params.cation_set):
+        # From Eqn 35
+        if len(b.params.anion_set) > 1:
+            return sum(Y[k]*alpha_dT(
+                b, pobj, (j+", "+i), (j+", "+k), b.temperature)
+                       for k in b.params.anion_set)
+        else:
+            return 0
+
+
+def dG_dT(b, pname, i, j):
+    # Calculate dG/dT terms
+    Y = getattr(b, pname+"_Y")
+    molecular_set = b.params.solvent_set | b.params.solute_set
+    pobj = b.params.get_phase(pname)
+
+    # Check options for alpha rule
+    if (pobj.config.equation_of_state_options is not None and
+            "alpha_rule" in pobj.config.equation_of_state_options):
+        alpha = pobj.config.equation_of_state_options[
+            "alpha_rule"].return_expression
+        alpha_dT = pobj.config.equation_of_state_options[
+            "alpha_rule"].dT_expression
+    else:
+        alpha = DefaultAlphaRule.return_expression
+        alpha_dT = DefaultAlphaRule.dT_expression
+
+    # Check options for tau rule
+    if (pobj.config.equation_of_state_options is not None and
+            "tau_rule" in pobj.config.equation_of_state_options):
+        tau = pobj.config.equation_of_state_options[
+            "tau_rule"].return_expression
+        tau_dT = pobj.config.equation_of_state_options[
+            "tau_rule"].dT_expression
+    else:
+        tau = DefaultTauRule.return_expression
+        tau_dT = DefaultTauRule.dT_expression
+
+    def _G(b, pobj, i, j, T):  # Eqn 23
+        if i != j:
+            return exp(-alpha(b, pobj, i, j, T) * tau(b, pobj, i, j, T))
+        else:
+            return 1
+
+    def _G_dT(b, pobj, i, j, T):  # From Eqn 23
+        if i != j:
+            return (_G(b, pobj, i, j, T) *
+                    (alpha(b, pobj, i, j, T)*tau_dT(b, pobj, i, j, T) +
+                     alpha_dT(b, pobj, i, j, T)*tau(b, pobj, i, j, T)))
+        else:
+            return 0
+
+    if ((i in molecular_set) and
+            (j in molecular_set)):
+        # G comes directly from parameters
+        return _G_dT(b, pobj, i, j, b.temperature)
+    elif (i in b.params.cation_set and j in molecular_set):
+        # From Eqn 38
+        return sum(Y[k] * _G_dT(b, pobj, (i+", "+k), j,  b.temperature)
+                   for k in b.params.anion_set)
+    elif (i in molecular_set and j in b.params.cation_set):
+        # From Eqn 40
+        return sum(Y[k] * _G_dT(b, pobj, i, (j+", "+k), b.temperature)
+                   for k in b.params.anion_set)
+    elif (i in b.params.anion_set and j in molecular_set):
+        # FRom Eqn 39
+        return sum(Y[k] * _G_dT(b, pobj, (k+", "+i), j, b.temperature)
+                   for k in b.params.cation_set)
+    elif (i in molecular_set and j in b.params.anion_set):
+        # From Eqn 41
+        return sum(Y[k] * _G_dT(b, pobj, i, (k+", "+j), b.temperature)
+                   for k in b.params.cation_set)
+    elif (i in b.params.cation_set and j in b.params.anion_set):
+        # From Eqn 42
+        if len(b.params.cation_set) > 1:
+            return sum(Y[k] * _G_dT(
+                b, pobj, (i+", "+j), (k+", "+j), b.temperature)
+                for k in b.params.cation_set)
+        else:
+            # This term does not exist for single cation systems
+            # However, need a valid result to calculate tau
+            return 0
+    elif (i in b.params.anion_set and j in b.params.cation_set):
+        # From Eqn 43
+        if len(b.params.anion_set) > 1:
+            return sum(Y[k] * _G_dT(
+                b, pobj, (j+", "+i), (j+", "+k), b.temperature)
+                for k in b.params.anion_set)
+        else:
+            # This term does not exist for single anion systems
+            # However, need a valid result to calculate tau
+            return 0
+
+
+def dtau_dT(b, pname, i, j):
+    # Calculate tau terms
+    molecular_set = b.params.solvent_set | b.params.solute_set
+    pobj = b.params.get_phase(pname)
+
+    # Check options for tau rule
+    if (pobj.config.equation_of_state_options is not None and
+            "tau_rule" in pobj.config.equation_of_state_options):
+        tau_dT = pobj.config.equation_of_state_options[
+            "tau_rule"].dT_expression
+    else:
+        tau_dT = DefaultTauRule.dT_expression
+
+    if ((i in molecular_set) and (j in molecular_set)):
+        # tau equal to parameter
+        return tau_dT(b, pobj, i, j, b.temperature)
+    else:
+        alpha = getattr(b, pname+"_alpha")
+        G = getattr(b, pname+"_G")
+        # From Eqn 44
+        return (-1/alpha[i, j])*(alpha[i, j]*dG_dT(b, pname, i, j)/G[i, j] +
+                                 dalpha_dT(b, pname, i, j)*log(G[i, j]))

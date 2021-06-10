@@ -78,54 +78,81 @@ configuration = {
             ("Na+, Cl-", "H2O"): -4.549}}}  # Table 1, [1]
 
 
-@pytest.fixture(scope="module")
-def model():
-    m = ConcreteModel()
-    m.params = GenericParameterBlock(default=configuration)
+class TestPDHTerm():
+    @pytest.fixture(scope="class")
+    def model(self):
+        m = ConcreteModel()
+        m.params = GenericParameterBlock(default=configuration)
 
-    m.state = m.params.build_state_block([1])
+        m.state = m.params.build_state_block([1])
 
-    # Need to set a value of T for checking expressions later
-    m.state[1].temperature.set_value(298.15)
+        # Need to set a value of T for checking expressions later
+        m.state[1].temperature.set_value(298.15)
 
-    return m
+        return m
+
+    @pytest.mark.unit
+    def test_dv_dT(self, model):
+        e = dv_dT(model.state[1], "Liq")
+        assert value(e) == pytest.approx(3.23e-10, rel=1e-5)
+        assert_units_equivalent(e, pyunits.m**3/pyunits.mol/pyunits.K)
+
+    @pytest.mark.unit
+    def test_deps_dT(self, model):
+        e = deps_dT(model.state[1], "Liq")
+        assert value(e) == 0
+        assert_units_equivalent(e, pyunits.dimensionless)
+
+    @pytest.mark.unit
+    def test_dA_dT(self, model):
+        A1 = value(model.state[1].Liq_A_DH)
+        dA1 = dA_dt(model.state[1], "Liq")
+
+        # Add a minor disturbance to T
+        delT = 1e-8
+        model.state[1].temperature.set_value(298.15+delT)
+        A2 = value(model.state[1].Liq_A_DH)
+
+        assert value(dA1) == pytest.approx((A2-A1)/delT, rel=2e-3)
+
+        # Repeat for a higher T
+        model.state[1].temperature.set_value(500)
+
+        A1 = value(model.state[1].Liq_A_DH)
+        dA1 = dA_dt(model.state[1], "Liq")
+
+        # Add a minor disturbance to T
+        delT = 1e-8
+        model.state[1].temperature.set_value(500+delT)
+        A2 = value(model.state[1].Liq_A_DH)
+
+        assert value(dA1) == pytest.approx((A2-A1)/delT, rel=3e-3)
 
 
-@pytest.mark.unit
-def test_dv_dT(model):
-    e = dv_dT(model.state[1], "Liq")
-    assert value(e) == pytest.approx(3.23e-10, rel=1e-5)
-    assert_units_equivalent(e, pyunits.m**3/pyunits.mol/pyunits.K)
+class TestLCTermConstant():
+    @pytest.fixture(scope="class")
+    def model(self):
+        m = ConcreteModel()
+        m.params = GenericParameterBlock(default=configuration)
 
+        m.state = m.params.build_state_block([1])
 
-@pytest.mark.unit
-def test_deps_dT(model):
-    e = deps_dT(model.state[1], "Liq")
-    assert value(e) == 0
-    assert_units_equivalent(e, pyunits.dimensionless)
+        # Need to set a value of T for checking expressions later
+        m.state[1].temperature.set_value(298.15)
 
+        return m
 
-@pytest.mark.unit
-def test_dA_dT(model):
-    A1 = value(model.state[1].Liq_A_DH)
-    dA1 = dA_dt(model.state[1], "Liq")
+    @pytest.mark.unit
+    def test_dalpha_dT(self, model):
+        for i, j in model.state[1].Liq_alpha:
+            assert value(dalpha_dT(model.state[1], "Liq", i, j)) == 0
 
-    # Add a minor disturbance to T
-    delT = 1e-8
-    model.state[1].temperature.set_value(298.15+delT)
-    A2 = value(model.state[1].Liq_A_DH)
+    @pytest.mark.unit
+    def test_dG_dT(self, model):
+        for i, j in model.state[1].Liq_G:
+            assert value(dG_dT(model.state[1], "Liq", i, j)) == 0
 
-    assert value(dA1) == pytest.approx((A2-A1)/delT, rel=2e-3)
-
-    # Repeat for a higher T
-    model.state[1].temperature.set_value(500)
-
-    A1 = value(model.state[1].Liq_A_DH)
-    dA1 = dA_dt(model.state[1], "Liq")
-
-    # Add a minor disturbance to T
-    delT = 1e-8
-    model.state[1].temperature.set_value(500+delT)
-    A2 = value(model.state[1].Liq_A_DH)
-
-    assert value(dA1) == pytest.approx((A2-A1)/delT, rel=3e-3)
+    @pytest.mark.unit
+    def test_dtau_dT(self, model):
+        for i, j in model.state[1].Liq_tau:
+            assert value(dtau_dT(model.state[1], "Liq", i, j)) == 0
