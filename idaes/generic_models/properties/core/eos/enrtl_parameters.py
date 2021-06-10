@@ -94,6 +94,10 @@ class ConstantAlpha(object):
                 "the IDAES Developers with this bug."
                 .format(b.name, (i, j)))
 
+    def dT_expression(b, pobj, i, j, T):
+        # Required for calculating d(ln(gamma))/dT
+        return 0
+
 
 class ConstantTau(object):
     def build_parameters(b):
@@ -143,3 +147,7 @@ class ConstantTau(object):
                 "{} tau rule encountered unexpected index {}. Please contact"
                 "the IDAES Developers with this bug."
                 .format(b.name, (i, j)))
+
+    def dT_expression(b, pobj, i, j, T):
+        # Required for calculating d(ln(gamma))/dT
+        return 0

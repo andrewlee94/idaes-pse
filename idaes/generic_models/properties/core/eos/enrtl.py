@@ -587,6 +587,19 @@ class ENRTL(Ideal):
         ln_gamma = getattr(b, p+"_log_gamma_appr")
         return exp(ln_gamma[j])
 
+    @staticmethod
+    def gibbs_mol_phase(b, p):
+        return (sum(_gibbs_mol_comp(b, p, j)
+                    for j in b.components_in_phase(p)) +
+                Constants.gas_constant*b.temperature *
+                sum(b.act_phase_comp_true[p, j]
+                    for j in b.params.true_component_set))
+
+    @staticmethod
+    def gibbs_mol_phase_comp(b, p, j):
+        return (_gibbs_mol_comp(b, p, j) +
+                Constants.gas_constant*b.temperature*b.act_phase_comp[p, j])
+
 
 def log_gamma_lc(b, pname, s, X, G, tau):
     # General function for calculating local contributions
@@ -682,3 +695,11 @@ def log_gamma_lc(b, pname, s, X, G, tau):
                           for i in (aqu_species-b.params.anion_set))))
                     for a in b.params.anion_set)
                 )
+
+
+def _gibbs_mol_comp(b, p, j):
+    return (get_method(b, "enth_mol_liq_comp", j)(
+                b, cobj(b, j), b.temperature) -
+            b.temperature *
+            get_method(b, "entr_mol_liq_comp", j)(
+                b, cobj(b, j), b.temperature))

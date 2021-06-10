@@ -20,7 +20,7 @@ from idaes.core.util.misc import set_param_from_config
 
 # -----------------------------------------------------------------------------
 # Method for constant relative permittivity
-# RElative permittivity was referred to as the dielectric constant in the past
+# Relative permittivity was referred to as the dielectric constant in the past
 class relative_permittivity_constant():
 
     @staticmethod
@@ -33,3 +33,7 @@ class relative_permittivity_constant():
     @staticmethod
     def return_expression(b, cobj, T):
         return cobj.relative_permittivity_liq_comp
+
+    @staticmethod
+    def dT_expression(b, cobj, T):
+        return 0
