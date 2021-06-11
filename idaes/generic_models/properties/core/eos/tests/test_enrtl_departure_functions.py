@@ -33,6 +33,8 @@ from idaes.generic_models.properties.core.generic.generic_property import (
 from idaes.generic_models.properties.core.state_definitions import FTPx
 from idaes.generic_models.properties.core.pure.electrolyte import \
     relative_permittivity_constant
+from idaes.generic_models.properties.core.eos.enrtl_parameters import \
+    LinearAlpha
 
 from idaes.generic_models.properties.core.eos.enrtl_departure_functions import *
 
@@ -130,6 +132,39 @@ class TestPDHTerm():
 
 
 class TestLCTermConstant():
+    @pytest.fixture(scope="class")
+    def model(self):
+        m = ConcreteModel()
+        m.params = GenericParameterBlock(default=configuration)
+
+        m.state = m.params.build_state_block([1])
+
+        # Need to set a value of T for checking expressions later
+        m.state[1].temperature.set_value(298.15)
+
+        return m
+
+    @pytest.mark.unit
+    def test_dalpha_dT(self, model):
+        for i, j in model.state[1].Liq_alpha:
+            assert value(dalpha_dT(model.state[1], "Liq", i, j)) == 0
+
+    @pytest.mark.unit
+    def test_dG_dT(self, model):
+        for i, j in model.state[1].Liq_G:
+            assert value(dG_dT(model.state[1], "Liq", i, j)) == 0
+
+    @pytest.mark.unit
+    def test_dtau_dT(self, model):
+        for i, j in model.state[1].Liq_tau:
+            assert value(dtau_dT(model.state[1], "Liq", i, j)) == 0
+
+
+class TestLCTermVariable():
+    cls_config = dict(configuration)
+    cls_config["phase"]["Liq"]["equation_of_state_options"] = {
+        "alpha_rule": LinearAlpha}
+
     @pytest.fixture(scope="class")
     def model(self):
         m = ConcreteModel()
