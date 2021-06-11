@@ -99,6 +99,120 @@ class ConstantAlpha(object):
         return 0
 
 
+class LinearAlpha(object):
+    def build_parameters(b):
+        param_block = b.parent_block()
+        T_units = param_block.get_metadata().default_units["temperature"]
+
+        # Get user provided values for alpha
+        alpha_1_data = param_block.config.parameter_data[
+                b.local_name+"_alpha_1"]
+        alpha_2_data = param_block.config.parameter_data[
+                b.local_name+"_alpha_2"]
+
+        # Check for unused parameters in alpha_data
+        for (i, j) in alpha_1_data.keys():
+            if ((i, j) not in b.component_pair_set_symmetric and
+                    (j, i) not in b.component_pair_set_symmetric):
+                raise ConfigurationError(
+                    "{} eNRTL alpha_1 parameter provided for invalid "
+                    "component pair {}. Please check typing and only provide "
+                    "parameters for valid species pairs."
+                    .format(b.name, (i, j)))
+        for (i, j) in alpha_2_data.keys():
+            if ((i, j) not in b.component_pair_set_symmetric and
+                    (j, i) not in b.component_pair_set_symmetric):
+                raise ConfigurationError(
+                    "{} eNRTL alpha_2 parameter provided for invalid "
+                    "component pair {}. Please check typing and only provide "
+                    "parameters for valid species pairs."
+                    .format(b.name, (i, j)))
+
+        def alpha_1_init(b, i, j):
+            if (i, j) in alpha_1_data.keys():
+                v = alpha_1_data[(i, j)]
+                # Check for non-symmetric value assignment
+                if (j, i) in alpha_1_data.keys():
+                    if alpha_1_data[(j, i)] != v:
+                        raise ConfigurationError(
+                            "{} eNRTL alpha_1 parameter assigned non-symmetric"
+                            " value for pair {}. Please assign only one value "
+                            "for component pair.".format(b.name, (i, j)))
+                    else:
+                        _log.info("eNRTL alpha_1 value provided for both {} "
+                                  "and {}. It is only necessary to provide a "
+                                  "value for one of these due to symmetry."
+                                  .format((i, j), (j, i)))
+            elif(j, i) in alpha_1_data.keys():
+                v = alpha_1_data[(j, i)]
+            elif ((i in param_block.solvent_set or
+                   i in param_block.solute_set) and
+                  (j in param_block.solvent_set or
+                   j in param_block.solute_set)):
+                # Molecular-molecular interaction, default value is 0.3
+                v = 0.3
+            else:
+                # All other intereactions have default value 0.2
+                v = 0.2
+            return v
+
+        def alpha_2_init(b, i, j):
+            if (i, j) in alpha_2_data.keys():
+                v = alpha_2_data[(i, j)]
+                # Check for non-symmetric value assignment
+                if (j, i) in alpha_2_data.keys():
+                    if alpha_2_data[(j, i)] != v:
+                        raise ConfigurationError(
+                            "{} eNRTL alpha_2 parameter assigned non-symmetric"
+                            " value for pair {}. Please assign only one value "
+                            "for component pair.".format(b.name, (i, j)))
+                    else:
+                        _log.info("eNRTL alpha_2 value provided for both {} "
+                                  "and {}. It is only necessary to provide a "
+                                  "value for one of these due to symmetry."
+                                  .format((i, j), (j, i)))
+            elif(j, i) in alpha_2_data.keys():
+                v = alpha_2_data[(j, i)]
+            else:
+                # All other intereactions have default value 0
+                v = 0
+            return v
+
+        b.add_component(
+            'alpha_1',
+            Var(b.component_pair_set_symmetric,
+                within=Reals,
+                initialize=alpha_1_init,
+                doc='Symmetric non-randomness parameters constant term',
+                units=pyunits.dimensionless))
+        b.add_component(
+            'alpha_2',
+            Var(b.component_pair_set_symmetric,
+                within=Reals,
+                initialize=alpha_2_init,
+                doc='Symmetric non-randomness parameters linear term',
+                units=1/T_units))
+
+    def return_expression(b, pobj, i, j, T):
+        if (i, j) in pobj.alpha:
+            return (pobj.alpha_1[i, j] +
+                    pobj.alpha_2[i, j]*(b.temperature - b.temperature_ref))
+        elif (j, i) in pobj.alpha:
+            return (pobj.alpha_1[j, i] +
+                    pobj.alpha_2[j, i]*(b.temperature - b.temperature_ref))
+        elif i == j:
+            return 0.2
+        else:
+            raise BurntToast(
+                "{} alpha rule encountered unexpected index {}. Please contact"
+                "the IDAES Developers with this bug."
+                .format(b.name, (i, j)))
+
+    def dT_expression(b, pobj, i, j, T):
+        # Required for calculating d(ln(gamma))/dT
+        return pobj.alpha_2[i, j]
+
+
 class ConstantTau(object):
     def build_parameters(b):
         param_block = b.parent_block()
