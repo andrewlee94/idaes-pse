@@ -106,11 +106,17 @@ class LinearAlpha(object):
         param_block = b.parent_block()
         T_units = param_block.get_metadata().default_units["temperature"]
 
-        # Get user provided values for alpha
-        alpha_1_data = param_block.config.parameter_data[
+        # Get user provided values for alpha (if present)
+        try:
+            alpha_1_data = param_block.config.parameter_data[
                 b.local_name+"_alpha_1"]
-        alpha_2_data = param_block.config.parameter_data[
+        except KeyError:
+            alpha_1_data = {}
+        try:
+            alpha_2_data = param_block.config.parameter_data[
                 b.local_name+"_alpha_2"]
+        except KeyError:
+            alpha_2_data = {}
 
         # Check for unused parameters in alpha_data
         for (i, j) in alpha_1_data.keys():
@@ -196,12 +202,14 @@ class LinearAlpha(object):
                 units=1/T_units))
 
     def return_expression(b, pobj, i, j, T):
-        if (i, j) in pobj.alpha:
+        if (i, j) in pobj.alpha_1:
             return (pobj.alpha_1[i, j] +
-                    pobj.alpha_2[i, j]*(b.temperature - b.temperature_ref))
-        elif (j, i) in pobj.alpha:
+                    pobj.alpha_2[i, j]*(b.temperature -
+                                        b.params.temperature_ref))
+        elif (j, i) in pobj.alpha_1:
             return (pobj.alpha_1[j, i] +
-                    pobj.alpha_2[j, i]*(b.temperature - b.temperature_ref))
+                    pobj.alpha_2[j, i]*(b.temperature -
+                                        b.params.temperature_ref))
         elif i == j:
             return 0.2
         else:
@@ -212,7 +220,10 @@ class LinearAlpha(object):
 
     def dT_expression(b, pobj, i, j, T):
         # Required for calculating d(ln(gamma))/dT
-        return pobj.alpha_2[i, j]
+        if (i, j) in pobj.alpha_2:
+            return pobj.alpha_2[i, j]
+        else:
+            return pobj.alpha_2[j, i]
 
 
 class ConstantTau(object):
@@ -256,8 +267,6 @@ class ConstantTau(object):
     def return_expression(b, pobj, i, j, T):
         if (i, j) in pobj.tau:
             return pobj.tau[i, j]
-        elif (j, i) in pobj.tau:
-            return pobj.tau[j, i]
         elif i == j:
             return 0
         else:
@@ -269,3 +278,86 @@ class ConstantTau(object):
     def dT_expression(b, pobj, i, j, T):
         # Required for calculating d(ln(gamma))/dT
         return 0
+
+
+class InverseTau(object):
+    @staticmethod
+    def build_parameters(b):
+        param_block = b.parent_block()
+        T_units = param_block.get_metadata().default_units["temperature"]
+
+        # Get user provided values for tau (if present)
+        try:
+            tau_1_data = param_block.config.parameter_data[
+                b.local_name+"_tau_1"]
+        except KeyError:
+            tau_1_data = {}
+        try:
+            tau_2_data = param_block.config.parameter_data[
+                b.local_name+"_tau_2"]
+        except KeyError:
+            tau_2_data = {}
+
+        # Check for unused parameters in tau_data
+        for (i, j) in tau_1_data.keys():
+            if (i, j) not in b.component_pair_set:
+                raise ConfigurationError(
+                    "{} eNRTL tau_1 parameter provided for invalid "
+                    "component pair {}. Please check typing and only provide "
+                    "parameters for valid species pairs."
+                    .format(b.name, (i, j)))
+        for (i, j) in tau_2_data.keys():
+            if (i, j) not in b.component_pair_set:
+                raise ConfigurationError(
+                    "{} eNRTL tau_2 parameter provided for invalid "
+                    "component pair {}. Please check typing and only provide "
+                    "parameters for valid species pairs."
+                    .format(b.name, (i, j)))
+
+        def tau_1_init(b, i, j):
+            if (i, j) in tau_1_data.keys():
+                v = tau_1_data[(i, j)]
+            else:
+                # Default interaction value is 0
+                v = 0
+            return v
+
+        b.add_component(
+            'tau_1',
+            Var(b.component_pair_set,
+                within=Reals,
+                initialize=tau_1_init,
+                doc='Binary interaction energy parameters constant term',
+                units=pyunits.dimensionless))
+
+        def tau_2_init(b, i, j):
+            if (i, j) in tau_2_data.keys():
+                v = tau_2_data[(i, j)]
+            else:
+                # Default interaction value is 0
+                v = 0
+            return v
+
+        b.add_component(
+            'tau_2',
+            Var(b.component_pair_set,
+                within=Reals,
+                initialize=tau_2_init,
+                doc='Binary interaction energy parameters inverse term',
+                units=T_units))
+
+    @staticmethod
+    def return_expression(b, pobj, i, j, T):
+        if (i, j) in pobj.tau_1:
+            return pobj.tau_1[i, j] + pobj.tau_2[i, j]/b.temperature
+        elif i == j:
+            return 0
+        else:
+            raise BurntToast(
+                "{} tau rule encountered unexpected index {}. Please contact"
+                "the IDAES Developers with this bug."
+                .format(b.name, (i, j)))
+
+    def dT_expression(b, pobj, i, j, T):
+        # Required for calculating d(ln(gamma))/dT
+        return -pobj.tau_2[i, j]/b.temperature**2

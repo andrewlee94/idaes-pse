@@ -186,7 +186,7 @@ def dG_dT(b, pname, i, j):
 
     def _G_dT(b, pobj, i, j, T):  # From Eqn 23
         if i != j:
-            return (_G(b, pobj, i, j, T) *
+            return (-_G(b, pobj, i, j, T) *
                     (alpha(b, pobj, i, j, T)*tau_dT(b, pobj, i, j, T) +
                      alpha_dT(b, pobj, i, j, T)*tau(b, pobj, i, j, T)))
         else:
@@ -254,5 +254,6 @@ def dtau_dT(b, pname, i, j):
         alpha = getattr(b, pname+"_alpha")
         G = getattr(b, pname+"_G")
         # From Eqn 44
-        return (-1/alpha[i, j])*(alpha[i, j]*dG_dT(b, pname, i, j)/G[i, j] +
-                                 dalpha_dT(b, pname, i, j)*log(G[i, j]))
+        return ((dalpha_dT(b, pname, i, j)*log(G[i, j]) -
+                 alpha[i, j]*dG_dT(b, pname, i, j)/G[i, j]) /
+                alpha[i, j]**2)
