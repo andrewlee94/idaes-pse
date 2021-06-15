@@ -37,6 +37,8 @@ from idaes.generic_models.properties.core.pure.electrolyte import \
     relative_permittivity_constant
 from idaes.generic_models.properties.core.eos.enrtl_parameters import \
     LinearAlpha, InverseTau
+from idaes.generic_models.properties.core.eos.enrtl_reference_states import \
+    Symmetric
 
 from idaes.generic_models.properties.core.eos.enrtl_departure_functions import *
 
@@ -126,7 +128,6 @@ class TestPDHTerm():
         dA1 = dA_dt(model.state[1], "Liq")
 
         # Add a minor disturbance to T
-        delT = 1e-8
         model.state[1].temperature.set_value(500+delT)
         A2 = value(model.state[1].Liq_A_DH)
 
@@ -160,6 +161,31 @@ class TestLCTermConstant():
     def test_dtau_dT(self, model):
         for i, j in model.state[1].Liq_tau:
             assert value(dtau_dT(model.state[1], "Liq", i, j)) == 0
+
+    @pytest.mark.unit
+    def test_dlngamma_dT(self, model):
+        delT = 1e-8
+        for i in model.state[1].Liq_log_gamma:
+            model.state[1].temperature.set_value(298.15)
+            lng_1 = value(model.state[1].Liq_log_gamma[i])
+
+            model.state[1].temperature.set_value(298.15+delT)
+            lng_2 = value(model.state[1].Liq_log_gamma[i])
+
+            dlng_dT = (lng_2 - lng_1)/delT
+            assert pytest.approx(dlng_dT, rel=2e-3) == value(
+                dlngamma_dT(model.state[1], "Liq", i, Symmetric))
+
+            # Repeat for a higher T
+            model.state[1].temperature.set_value(500)
+            lng_1 = value(model.state[1].Liq_log_gamma[i])
+
+            model.state[1].temperature.set_value(500+delT)
+            lng_2 = value(model.state[1].Liq_log_gamma[i])
+
+            dlng_dT = (lng_2 - lng_1)/delT
+            assert pytest.approx(dlng_dT, rel=4e-3) == value(
+                dlngamma_dT(model.state[1], "Liq", i, Symmetric))
 
 
 class TestLCTermVariable():

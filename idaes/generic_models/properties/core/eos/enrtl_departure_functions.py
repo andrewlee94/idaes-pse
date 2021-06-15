@@ -26,7 +26,7 @@ from pyomo.environ import exp, log, units as pyunits
 
 from idaes.core.util.constants import Constants
 from idaes.generic_models.properties.core.eos.enrtl import (
-    DefaultAlphaRule, DefaultTauRule)
+    ClosestApproach, DefaultAlphaRule, DefaultTauRule)
 from idaes.generic_models.properties.core.generic.utility import (
     get_component_object as cobj)
 
@@ -257,3 +257,25 @@ def dtau_dT(b, pname, i, j):
         return ((dalpha_dT(b, pname, i, j)*log(G[i, j]) -
                  alpha[i, j]*dG_dT(b, pname, i, j)/G[i, j]) /
                 alpha[i, j]**2)
+
+
+def dlngamma_dT(b, pname, j, ref_state):
+    # Calculate PDH term
+    Ix = getattr(b, pname+"_ionic_strength")
+    I0 = getattr(b, pname+"_ionic_strength_ref")
+    rho = ClosestApproach
+    molecular_set = b.params.solvent_set | b.params.solute_set
+    if j in molecular_set:
+        # Eqn 69
+        # Note typo in original paper. Correct power for I is (3/2)
+        pdh = dA_dt(b, pname)*(2*Ix**(3/2)/(1+rho*Ix**(1/2)))
+    elif j in b.params.ion_set:
+        # Eqn 70
+        z = abs(cobj(b, j).config.charge)
+        pdh = (-dA_dt(b, pname) *
+               ((2*z**2/rho)*log((1+rho*Ix**0.5)/(1+rho*I0**0.5)) +
+                (z**2*Ix**0.5 - 2*Ix**(3/2)) / (1+rho*Ix**0.5) -
+                (2*Ix*I0**-0.5) / (1+rho*I0**0.5) *
+                ref_state.ndIdn(b, pname, j)))
+
+    return pdh
