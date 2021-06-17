@@ -25,6 +25,8 @@ Coefficient Model, Ind. Eng. Chem. Res., 2009, Vol. 48, pgs. 7788–7797
 from pyomo.environ import exp, log, units as pyunits
 
 from idaes.core.util.constants import Constants
+from idaes.generic_models.properties.core.eos.enrtl_parameters import (
+    ConstantAlpha, ConstantTau)
 from idaes.generic_models.properties.core.eos.enrtl import (
     ClosestApproach, DefaultAlphaRule, DefaultTauRule)
 from idaes.generic_models.properties.core.generic.utility import (
@@ -263,6 +265,8 @@ def dlngamma_dT(b, pname, j, ref_state):
     # Calculate PDH term
     Ix = getattr(b, pname+"_ionic_strength")
     I0 = getattr(b, pname+"_ionic_strength_ref")
+    X = getattr(b, pname+"_X")
+    X_ref = getattr(b, pname+"_X_ref")
     rho = ClosestApproach
     molecular_set = b.params.solvent_set | b.params.solute_set
     if j in molecular_set:
@@ -278,4 +282,113 @@ def dlngamma_dT(b, pname, j, ref_state):
                 (2*Ix*I0**-0.5) / (1+rho*I0**0.5) *
                 ref_state.ndIdn(b, pname, j)))
 
-    return pdh
+    # Calculate LC term
+    pobj = b.params.get_phase(pname)
+
+    # Check to see alpha and tau are constant with temperature
+    if (pobj.config.equation_of_state_options is not None and
+            "alpha_rule" in pobj.config.equation_of_state_options):
+        alpha_rule = pobj.config.equation_of_state_options["alpha_rule"]
+    else:
+        alpha_rule = DefaultAlphaRule
+
+    if (pobj.config.equation_of_state_options is not None and
+            "tau_rule" in pobj.config.equation_of_state_options):
+        tau_rule = pobj.config.equation_of_state_options["tau_rule"]
+    else:
+        tau_rule = DefaultTauRule
+
+    if alpha_rule == ConstantAlpha and tau_rule == ConstantTau:
+        # alpha and tau are constant, so LC has no temperaature dependence
+        lc = 0
+    else:
+        # Otherwise, need to do partial derivative of the LC term
+        # Need to do this for both actual state and reference state
+        if j in molecular_set:
+            lc = dln_gamma_lc_dT(b, pname, j, X)
+        else:
+            lc = (dln_gamma_lc_dT(b, pname, j, X) -
+                  dln_gamma_lc_dT(b, pname, j, X_ref))
+
+    return pdh+lc
+
+
+def dln_gamma_lc_dT(b, pname, s, X):
+    # General function for calculating local contributions
+    # The same method can be used for both actual state and reference state
+    # by providing different X, G and tau expressions.
+
+    # Indicies in expressions use same names as source paper
+    # mp = m'
+    molecular_set = b.params.solvent_set | b.params.solute_set
+    aqu_species = b.params.true_species_set - b.params._non_aqueous_set
+
+    G = getattr(b, pname+"_G")
+    tau = getattr(b, pname+"_tau")
+
+    if s in b.params.cation_set:
+        c = s
+        Z = b.params.get_component(c).config.charge
+
+        # From Eqn 26
+        return 0
+    elif s in b.params.anion_set:
+        a = s
+        Z = abs(b.params.get_component(a).config.charge)
+
+        # From Eqn 27
+        return 0
+    else:
+        m = s
+        # From Eqn 25
+        return (sum(_LC_term_1(b, pname, X, G, tau, i, m, aqu_species)  # Checked
+                    for i in aqu_species) +
+                sum(_LC_term_2(b, pname, X, G, tau, m, mp, aqu_species)  # Checked
+                    for mp in molecular_set) +
+                sum(_LC_term_3(b, pname, X, G, tau, m, mp, aqu_species)  # Checked
+                    for mp in molecular_set) +
+                sum(_LC_term_2(b, pname, X, G, tau, m, c,
+                                aqu_species-b.params.cation_set)
+                    for c in b.params.cation_set) +
+                sum(_LC_term_3(b, pname, X, G, tau, m, c,
+                                aqu_species-b.params.cation_set)
+                    for c in b.params.cation_set) +
+                sum(_LC_term_2(b, pname, X, G, tau, m, a,
+                                aqu_species-b.params.anion_set)
+                    for a in b.params.anion_set) +
+                sum(_LC_term_3(b, pname, X, G, tau, m, a,
+                                aqu_species-b.params.anion_set)
+                    for a in b.params.anion_set)
+                )
+
+
+def _LC_term_1(blk, pname, X, G, tau, i, j, k_set):
+    b = sum(X[k]*G[k, j] for k in k_set)
+    bp = sum(X[k]*dG_dT(blk, pname, k, j) for k in k_set)
+
+    return (X[i]*(G[i, j]*(b*dtau_dT(blk, pname, i, j) - tau[i, j]*bp) +
+                  b*tau[i, j]*dG_dT(blk, pname, i, j))/b**2)
+
+
+def _LC_term_2(blk, pname, X, G, tau, i, j, k_set):
+    # Similar to term 1, but X is indexed by j instead of i
+    b = sum(X[k]*G[k, j] for k in k_set)
+    bp = sum(X[k]*dG_dT(blk, pname, k, j) for k in k_set)
+
+    return (X[j]*(G[i, j]*(b*dtau_dT(blk, pname, i, j) - tau[i, j]*bp) +
+                  b*tau[i, j]*dG_dT(blk, pname, i, j))/b**2)
+
+
+def _LC_term_3(blk, pname, X, G, tau, i, j, k_set):
+    a = X[j]*G[i, j]
+    ap = X[j]*dG_dT(blk, pname, i, j)
+
+    b = sum(X[k]*G[k, j]*tau[k, j] for k in k_set)
+    bp = sum(X[k]*(G[k, j]*dtau_dT(blk, pname, k, j) +
+                   dG_dT(blk, pname, k, j)*tau[k, j])
+             for k in k_set)
+
+    c = sum(X[k]*G[k, j] for k in k_set)
+    cp = sum(X[k]*dG_dT(blk, pname, k, j) for k in k_set)
+
+    return (-(b*c*ap + a*c*bp - 2*a*b*cp)/c**3)

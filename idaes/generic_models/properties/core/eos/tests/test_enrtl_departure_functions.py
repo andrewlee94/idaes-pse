@@ -43,6 +43,10 @@ from idaes.generic_models.properties.core.eos.enrtl_reference_states import \
 from idaes.generic_models.properties.core.eos.enrtl_departure_functions import *
 
 
+def between(y, x1, x2):
+    return 0 > (y-x1)*(y-x2)
+
+
 class density(object):
     def return_expression(*ags, **kwargs):
         return 1000/18e-3*pyunits.mol/pyunits.m**3
@@ -195,12 +199,12 @@ class TestLCTermVariable():
         "tau_rule": InverseTau}
     cls_config["parameter_data"] = {
         "Liq_alpha_2": {
-            ("Na+, Cl-", "H2O"): 1,
-            ("H2O", "H2O"): 2},
+            ("Na+, Cl-", "H2O"): 0.1,
+            ("H2O", "H2O"): 0.2},
         "Liq_tau_2": {
-            ("Na+, Cl-", "H2O"): 100,
-            ("H2O", "Na+, Cl-"): 200,
-            ("H2O", "H2O"): 300}}
+            ("Na+, Cl-", "H2O"): 10,
+            ("H2O", "Na+, Cl-"): 20,
+            ("H2O", "H2O"): 30}}
 
     @pytest.fixture(scope="class")
     def model(self):
@@ -227,13 +231,13 @@ class TestLCTermVariable():
             num_a_dT = (a2-a1)/delT
 
             if i == "H2O" and j == "H2O":
-                assert v == 2
+                assert v == 0.2
             elif i == "Na+" and j == "Cl-":
                 assert v == 0
             elif i == "Cl-" and j == "Na+":
                 assert v == 0
             else:
-                assert v == 1
+                assert v == 0.1
 
             assert v == pytest.approx(num_a_dT, rel=1e-3)
 
@@ -247,13 +251,13 @@ class TestLCTermVariable():
             num_a_dT = (a2-a1)/delT
 
             if i == "H2O" and j == "H2O":
-                assert v == 2
+                assert v == 0.2
             elif i == "Na+" and j == "Cl-":
                 assert v == 0
             elif i == "Cl-" and j == "Na+":
                 assert v == 0
             else:
-                assert v == 1
+                assert v == 0.1
 
             assert v == pytest.approx(num_a_dT, rel=1e-3)
 
@@ -275,10 +279,10 @@ class TestLCTermVariable():
                 assert v == 0
             elif i == "H2O" and j in ["Na+", "Cl-"]:
                 assert v == pytest.approx(
-                    -G1*(a*(-200/298.15**2) + t*1), rel=1e-6)
+                    -G1*(a*(-20/298.15**2) + t*0.1), rel=1e-6)
             elif i in ["Na+", "Cl-"] and j == "H2O":
                 assert v == pytest.approx(
-                    -G1*(a*(-100/298.15**2) + t*1), rel=1e-6)
+                    -G1*(a*(-10/298.15**2) + t*0.1), rel=1e-6)
             else:
                 assert v == 0
 
@@ -299,10 +303,10 @@ class TestLCTermVariable():
                 assert v == 0
             elif i == "H2O" and j in ["Na+", "Cl-"]:
                 assert v == pytest.approx(
-                    -G1*(a*(-200/500**2) + t*1), rel=1e-6)
+                    -G1*(a*(-20/500**2) + t*0.1), rel=1e-6)
             elif i in ["Na+", "Cl-"] and j == "H2O":
                 assert v == pytest.approx(
-                    -G1*(a*(-100/500**2) + t*1), rel=1e-6)
+                    -G1*(a*(-10/500**2) + t*0.1), rel=1e-6)
             else:
                 assert v == 0
 
@@ -323,13 +327,13 @@ class TestLCTermVariable():
             num_tau_dT = (t2-t1)/delT
 
             if i == "H2O" and j == "H2O":
-                assert v == -300/298.15**2
+                assert v == -30/298.15**2
             elif i == "H2O" and j in ["Na+", "Cl-"]:
-                dG_dT = -G*(a*(-200/298.15**2) + t1*1)
+                dG_dT = -G*(a*(-20/298.15**2) + t1*1)
                 assert v == pytest.approx(
                     ((1*log(G) - a*dG_dT/G)/a**2), rel=1e-6)
             elif i in ["Na+", "Cl-"] and j == "H2O":
-                dG_dT = -G*(a*(-100/298.15**2) + t1*1)
+                dG_dT = -G*(a*(-10/298.15**2) + t1*1)
                 assert v == pytest.approx(
                     ((1*log(G) - a*dG_dT/G)/a**2), rel=1e-6)
             else:
@@ -350,16 +354,68 @@ class TestLCTermVariable():
             num_tau_dT = (t2-t1)/delT
 
             if i == "H2O" and j == "H2O":
-                assert v == -300/500**2
+                assert v == -30/500**2
             elif i == "H2O" and j in ["Na+", "Cl-"]:
-                dG_dT = -G*(a*(-200/500**2) + t1*1)
+                dG_dT = -G*(a*(-20/500**2) + t1*1)
                 assert v == pytest.approx(
                     ((1*log(G) - a*dG_dT/G)/a**2), rel=1e-6)
             elif i in ["Na+", "Cl-"] and j == "H2O":
-                dG_dT = -G*(a*(-100/500**2) + t1*1)
+                dG_dT = -G*(a*(-10/500**2) + t1*1)
                 assert v == pytest.approx(
                     ((1*log(G) - a*dG_dT/G)/a**2), rel=1e-6)
             else:
                 assert v == 0
 
             assert v == pytest.approx(num_tau_dT, rel=1e-3)
+
+    @pytest.mark.unit
+    def test_dlngamma_dT(self, model):
+        delT = 1e-8
+        dtol = 1e-2
+
+        for i in model.state[1].Liq_log_gamma:
+            if i != "H2O":
+                continue
+            T = 298.15
+
+            model.state[1].temperature.set_value(T-delT)
+            lng_1 = value(model.state[1].Liq_log_gamma[i])
+            model.state[1].temperature.set_value(T)
+            lng_2 = value(model.state[1].Liq_log_gamma[i])
+            model.state[1].temperature.set_value(T+delT)
+            lng_3 = value(model.state[1].Liq_log_gamma[i])
+
+            dlng_dT_m = (lng_2 - lng_1)/delT
+            dlng_dT_p = (lng_3 - lng_2)/delT
+
+            model.state[1].temperature.set_value(T)
+            dlng = value(dlngamma_dT(model.state[1], "Liq", i, Symmetric))
+            print(dlng_dT_m, dlng, dlng_dT_p)
+            assert (pytest.approx(dlng_dT_m, rel=dtol) == dlng or
+                    pytest.approx(dlng_dT_p, rel=dtol) == dlng or
+                    (between(dlng, dlng_dT_m, dlng_dT_p) and
+                     (pytest.approx(dlng_dT_m, rel=10*dtol) == dlng or
+                      pytest.approx(dlng_dT_p, rel=10*dtol) == dlng)))
+
+            # Repeat for a higher T
+            T = 500
+
+            model.state[1].temperature.set_value(T-delT)
+            lng_1 = value(model.state[1].Liq_log_gamma[i])
+            model.state[1].temperature.set_value(T)
+            lng_2 = value(model.state[1].Liq_log_gamma[i])
+            model.state[1].temperature.set_value(T+delT)
+            lng_3 = value(model.state[1].Liq_log_gamma[i])
+
+            dlng_dT_m = (lng_2 - lng_1)/delT
+            dlng_dT_p = (lng_3 - lng_2)/delT
+
+            model.state[1].temperature.set_value(T)
+            dlng = value(dlngamma_dT(model.state[1], "Liq", i, Symmetric))
+            print(dlng_dT_m, dlng, dlng_dT_p)
+            assert (pytest.approx(dlng_dT_m, rel=dtol) == dlng or
+                    pytest.approx(dlng_dT_p, rel=dtol) == dlng or
+                    (between(dlng, dlng_dT_m, dlng_dT_p) and
+                     (pytest.approx(dlng_dT_m, rel=10*dtol) == dlng or
+                      pytest.approx(dlng_dT_p, rel=10*dtol) == dlng)))
+        assert False

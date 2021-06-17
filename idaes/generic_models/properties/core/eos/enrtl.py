@@ -455,10 +455,7 @@ class ENRTL(Ideal):
         # Local contribution to activity coefficient
         def rule_log_gamma_lc_I(b, s):
             X = getattr(b, pname+"_X")
-            G = getattr(b, pname+"_G")
-            tau = getattr(b, pname+"_tau")
-
-            return log_gamma_lc(b, pname, s, X, G, tau)
+            return log_gamma_lc(b, pname, s, X)
 
         b.add_component(pname+"_log_gamma_lc_I",
                         Expression(
@@ -468,10 +465,7 @@ class ENRTL(Ideal):
 
         def rule_log_gamma_lc_I0(b, s):
             X = getattr(b, pname+"_X_ref")
-            G = getattr(b, pname+"_G")
-            tau = getattr(b, pname+"_tau")
-
-            return log_gamma_lc(b, pname, s, X, G, tau)
+            return log_gamma_lc(b, pname, s, X)
 
         b.add_component(pname+"_log_gamma_lc_I0",
                         Expression(
@@ -589,7 +583,7 @@ class ENRTL(Ideal):
 
     @staticmethod
     def gibbs_mol_phase(b, p):
-        return (sum(_gibbs_mol_comp(b, p, j)
+        return (sum(_gibbs_mol_comp_ideal(b, p, j)
                     for j in b.components_in_phase(p)) +
                 Constants.gas_constant*b.temperature *
                 sum(b.act_phase_comp_true[p, j]
@@ -597,11 +591,11 @@ class ENRTL(Ideal):
 
     @staticmethod
     def gibbs_mol_phase_comp(b, p, j):
-        return (_gibbs_mol_comp(b, p, j) +
+        return (_gibbs_mol_comp_ideal(b, p, j) +
                 Constants.gas_constant*b.temperature*b.act_phase_comp[p, j])
 
 
-def log_gamma_lc(b, pname, s, X, G, tau):
+def log_gamma_lc(b, pname, s, X):
     # General function for calculating local contributions
     # The same method can be used for both actual state and reference state
     # by providing different X, G and tau expressions.
@@ -610,6 +604,9 @@ def log_gamma_lc(b, pname, s, X, G, tau):
     # mp = m'
     molecular_set = b.params.solvent_set | b.params.solute_set
     aqu_species = b.params.true_species_set - b.params._non_aqueous_set
+
+    G = getattr(b, pname+"_G")
+    tau = getattr(b, pname+"_tau")
 
     if (pname, s) not in b.params.true_phase_component_set:
         # Non-aqueous component
@@ -693,11 +690,10 @@ def log_gamma_lc(b, pname, s, X, G, tau):
                           for i in (aqu_species-b.params.anion_set)) /
                       sum(X[i]*G[i, a]
                           for i in (aqu_species-b.params.anion_set))))
-                    for a in b.params.anion_set)
-                )
+                    for a in b.params.anion_set))
 
 
-def _gibbs_mol_comp(b, p, j):
+def _gibbs_mol_comp_ideal(b, p, j):
     return (get_method(b, "enth_mol_liq_comp", j)(
                 b, cobj(b, j), b.temperature) -
             b.temperature *
