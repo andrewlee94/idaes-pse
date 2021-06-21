@@ -374,8 +374,6 @@ class TestLCTermVariable():
         dtol = 1e-2
 
         for i in model.state[1].Liq_log_gamma:
-            if i != "H2O":
-                continue
             T = 298.15
 
             model.state[1].temperature.set_value(T-delT)
@@ -390,7 +388,6 @@ class TestLCTermVariable():
 
             model.state[1].temperature.set_value(T)
             dlng = value(dlngamma_dT(model.state[1], "Liq", i, Symmetric))
-            print(dlng_dT_m, dlng, dlng_dT_p)
             assert (pytest.approx(dlng_dT_m, rel=dtol) == dlng or
                     pytest.approx(dlng_dT_p, rel=dtol) == dlng or
                     (between(dlng, dlng_dT_m, dlng_dT_p) and
@@ -412,10 +409,8 @@ class TestLCTermVariable():
 
             model.state[1].temperature.set_value(T)
             dlng = value(dlngamma_dT(model.state[1], "Liq", i, Symmetric))
-            print(dlng_dT_m, dlng, dlng_dT_p)
             assert (pytest.approx(dlng_dT_m, rel=dtol) == dlng or
                     pytest.approx(dlng_dT_p, rel=dtol) == dlng or
                     (between(dlng, dlng_dT_m, dlng_dT_p) and
                      (pytest.approx(dlng_dT_m, rel=10*dtol) == dlng or
                       pytest.approx(dlng_dT_p, rel=10*dtol) == dlng)))
-        assert False

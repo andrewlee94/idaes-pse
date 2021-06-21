@@ -29,12 +29,15 @@ ionic charge.
 from pyomo.environ import Expression, exp, log, Set, units as pyunits
 
 from .ideal import Ideal
+from idaes.core.components import \
+    IonData, ApparentData, SolventData, SoluteData
 from .enrtl_reference_states import Symmetric
-from .enrtl_parameters import ConstantAlpha, ConstantTau
+from .enrtl_parameters import ClosestApproach, DefaultAlphaRule, DefaultTauRule
 from idaes.generic_models.properties.core.generic.utility import (
     get_method, get_component_object as cobj)
 from idaes.generic_models.properties.core.generic.generic_property import \
     StateIndex
+from .enrtl_departure_functions import dlngamma_dT
 from idaes.core.util.constants import Constants
 from idaes.core.util.exceptions import BurntToast
 import idaes.logger as idaeslog
@@ -44,13 +47,7 @@ import idaes.logger as idaeslog
 _log = idaeslog.getLogger(__name__)
 
 
-DefaultAlphaRule = ConstantAlpha
-DefaultTauRule = ConstantTau
 DefaultRefState = Symmetric
-
-# Closest appraoch parameter - implemented as a global constant for now
-# This is not something the user should be changing in most cases
-ClosestApproach = 14.9
 
 
 class ENRTL(Ideal):
@@ -581,18 +578,48 @@ class ENRTL(Ideal):
         ln_gamma = getattr(b, p+"_log_gamma_appr")
         return exp(ln_gamma[j])
 
+    # TODO: Update this to include effects of solutes and ions
     @staticmethod
-    def gibbs_mol_phase(b, p):
-        return (sum(_gibbs_mol_comp_ideal(b, p, j)
-                    for j in b.components_in_phase(p)) +
-                Constants.gas_constant*b.temperature *
-                sum(b.act_phase_comp_true[p, j]
-                    for j in b.params.true_component_set))
+    def dens_mol_phase(b, p):
+        return sum(b.get_mole_frac()[p, j] *
+                   get_method(b, "dens_mol_liq_comp", j)(
+                       b, cobj(b, j), b.temperature)
+                   for j in b.params.solvent_set)
 
     @staticmethod
-    def gibbs_mol_phase_comp(b, p, j):
-        return (_gibbs_mol_comp_ideal(b, p, j) +
-                Constants.gas_constant*b.temperature*b.act_phase_comp[p, j])
+    def enth_mol_phase(b, p):
+        return sum(b.mole_frac_phase_comp[p, j] *
+                   ENRTL.enth_mol_phase_comp(b, p, j)
+                   for j in b.params.true_component_set
+                   if (p, j) in b.params.true_phase_component_set)
+
+    @staticmethod
+    def enth_mol_phase_comp(b, p, j):
+        cobj = b.params.get_component(j)
+        pobj = b.params.get_phase(p)
+
+        if isinstance(cobj, ApparentData):
+            # Apparent component - apparent species do not have properties
+            return Expression.Skip
+        elif isinstance(cobj, (IonData, SolventData, SoluteData)):
+            # Need to check for Henry component
+            # TODO add Henry support
+            if (pobj.config.equation_of_state_options is not None and
+                    "reference_state" in
+                    pobj.config.equation_of_state_options):
+                ref_state = pobj.config.equation_of_state_options[
+                    "reference_state"]
+            else:
+                ref_state = DefaultRefState
+
+            h_ideal = Ideal.enth_mol_phase_comp(b, p, j)
+
+            return (h_ideal -
+                    Constants.gas_constant*b.temperature**2 *
+                    dlngamma_dT(b, p, j, ref_state))
+        else:
+            raise BurntToast("{} eNRTL enthl_mol_phase_comp method recieved "
+                             "unexpected Component type {}.".format(b.name, j))
 
 
 def log_gamma_lc(b, pname, s, X):
@@ -691,11 +718,3 @@ def log_gamma_lc(b, pname, s, X):
                       sum(X[i]*G[i, a]
                           for i in (aqu_species-b.params.anion_set))))
                     for a in b.params.anion_set))
-
-
-def _gibbs_mol_comp_ideal(b, p, j):
-    return (get_method(b, "enth_mol_liq_comp", j)(
-                b, cobj(b, j), b.temperature) -
-            b.temperature *
-            get_method(b, "entr_mol_liq_comp", j)(
-                b, cobj(b, j), b.temperature))

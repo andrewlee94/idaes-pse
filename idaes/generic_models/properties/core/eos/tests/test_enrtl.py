@@ -23,6 +23,7 @@ from pyomo.environ import (ConcreteModel,
                            log,
                            Set,
                            units as pyunits,
+                           value,
                            Var)
 from pyomo.util.check_units import assert_units_equivalent
 
@@ -39,24 +40,31 @@ from idaes.generic_models.properties.core.generic.generic_property import (
 from idaes.generic_models.properties.core.state_definitions import FTPx
 from idaes.generic_models.properties.core.pure.electrolyte import \
     relative_permittivity_constant
+from idaes.generic_models.properties.core.pure.ConstantProperties import \
+    Constant
 from idaes.core.util.exceptions import ConfigurationError
 import idaes.logger as idaeslog
 
 
-def dummy_method(b, *args, **kwargs):
-    return 42*pyunits.mol/pyunits.m**3
+class dummy_class():
+    def return_expression(b, *args, **kwargs):
+        return 42*pyunits.mol/pyunits.m**3
+
+    def dT_expression(b, *args, **kwargs):
+        # TODO: Need non-zero value to avoid Pyomo unit conversion bug
+        return 1e-12*pyunits.mol/pyunits.m**3/pyunits.K
 
 
 configuration = {
     "components": {
         "H2O": {"type": Solvent,
-                "dens_mol_liq_comp": dummy_method,
+                "dens_mol_liq_comp": dummy_class,
                 "relative_permittivity_liq_comp":
                     relative_permittivity_constant,
                 "parameter_data": {"mw": (18E-3, pyunits.kg/pyunits.mol),
                                    "relative_permittivity_liq_comp": 101}},
         "C6H12": {"type": Solute,
-                  "dens_mol_liq_comp": dummy_method,
+                  "dens_mol_liq_comp": dummy_class,
                   "relative_permittivity_liq_comp":
                       relative_permittivity_constant,
                   "parameter_data": {"mw": (84E-3, pyunits.kg/pyunits.mol),
@@ -832,3 +840,64 @@ class TestStateBlockSymmetric(object):
         assert ("Cl-", "OH-") not in model.state[1].Liq_tau
         assert ("OH-", "Cl-") not in model.state[1].Liq_tau
         assert ("OH-", "OH-") not in model.state[1].Liq_tau
+
+
+class TestProperties():
+    configuration = {
+        "components": {
+            "H2O": {"type": Solvent,
+                    "dens_mol_liq_comp": dummy_class,
+                    "enth_mol_liq_comp": Constant,
+                    "relative_permittivity_liq_comp":
+                        relative_permittivity_constant,
+                    "parameter_data": {"mw": (18E-3, pyunits.kg/pyunits.mol),
+                                       "relative_permittivity_liq_comp": 101,
+                                       "cp_mol_liq_comp_coeff": 4e3,
+                                       "enth_mol_form_liq_comp_ref": -285e3}},
+            "NaCl": {"type": Apparent,
+                     "dissociation_species": {"Na+": 1, "Cl-": 1}},
+            "Na+": {"type": Cation,
+                    "enth_mol_liq_comp": Constant,
+                    "charge": +1,
+                    "parameter_data": {"cp_mol_liq_comp_coeff": 100,
+                                       "enth_mol_form_liq_comp_ref": 1000}},
+            "Cl-": {"type": Anion,
+                    "enth_mol_liq_comp": Constant,
+                    "charge": -1,
+                    "parameter_data": {"cp_mol_liq_comp_coeff": 200,
+                                       "enth_mol_form_liq_comp_ref": 2000}}},
+        "phases": {
+            "Liq": {"type": AqueousPhase,
+                    "equation_of_state": ENRTL}},
+        "base_units": {"time": pyunits.s,
+                       "length": pyunits.m,
+                       "mass": pyunits.kg,
+                       "amount": pyunits.mol,
+                       "temperature": pyunits.K},
+        "state_definition": FTPx,
+        "state_components": StateIndex.true,
+        "pressure_ref": 1e5,
+        "temperature_ref": 300}
+
+    @pytest.fixture(scope="class")
+    def model(self):
+        m = ConcreteModel()
+
+        m.params = GenericParameterBlock(default=TestProperties.configuration)
+
+        m.state = m.params.build_state_block(
+            [0], default={"defined_state": True})
+
+        m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.9)
+        m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.05)
+        m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.05)
+        m.state[0].temperature.fix(298.15)
+        m.state[0].pressure.fix(101325)
+
+        return m
+
+    def test_enth_mol_phase_comp(self, model):
+        # TODO: Add real test here
+        for i, v in model.state[0].enth_mol_phase_comp.items():
+            print(i, value(v))
+        assert False

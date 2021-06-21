@@ -26,9 +26,8 @@ from pyomo.environ import exp, log, units as pyunits
 
 from idaes.core.util.constants import Constants
 from idaes.generic_models.properties.core.eos.enrtl_parameters import (
-    ConstantAlpha, ConstantTau)
-from idaes.generic_models.properties.core.eos.enrtl import (
-    ClosestApproach, DefaultAlphaRule, DefaultTauRule)
+    ClosestApproach, ConstantAlpha, ConstantTau,
+    DefaultAlphaRule, DefaultTauRule)
 from idaes.generic_models.properties.core.generic.utility import (
     get_component_object as cobj)
 
@@ -331,35 +330,58 @@ def dln_gamma_lc_dT(b, pname, s, X):
         Z = b.params.get_component(c).config.charge
 
         # From Eqn 26
-        return 0
+        return Z*(sum(_LC_term_2(b, pname, X, G, tau, c, m, aqu_species)
+                      for m in molecular_set) +
+                  sum(_LC_term_3(b, pname, X, G, tau, c, m, aqu_species)
+                      for m in molecular_set) +
+                  sum(_LC_term_1(b, pname, X, G, tau, i, c,
+                                 aqu_species-b.params.cation_set)
+                      for i in aqu_species-b.params.cation_set) +
+                  sum(_LC_term_2(b, pname, X, G, tau, c, a,
+                                 aqu_species-b.params.anion_set)
+                      for a in b.params.anion_set) +
+                  sum(_LC_term_3(b, pname, X, G, tau, c, a,
+                                 aqu_species-b.params.anion_set)
+                      for a in b.params.anion_set))
     elif s in b.params.anion_set:
         a = s
         Z = abs(b.params.get_component(a).config.charge)
 
         # From Eqn 27
-        return 0
+        return Z*(sum(_LC_term_2(b, pname, X, G, tau, a, m, aqu_species)
+                      for m in molecular_set) +
+                  sum(_LC_term_3(b, pname, X, G, tau, a, m, aqu_species)
+                      for m in molecular_set) +
+                  sum(_LC_term_1(b, pname, X, G, tau, i, a,
+                                 aqu_species-b.params.anion_set)
+                      for i in aqu_species-b.params.anion_set) +
+                  sum(_LC_term_2(b, pname, X, G, tau, a, c,
+                                 aqu_species-b.params.cation_set)
+                      for c in b.params.cation_set) +
+                  sum(_LC_term_3(b, pname, X, G, tau, a, c,
+                                 aqu_species-b.params.cation_set)
+                      for c in b.params.cation_set))
     else:
         m = s
         # From Eqn 25
-        return (sum(_LC_term_1(b, pname, X, G, tau, i, m, aqu_species)  # Checked
+        return (sum(_LC_term_1(b, pname, X, G, tau, i, m, aqu_species)
                     for i in aqu_species) +
-                sum(_LC_term_2(b, pname, X, G, tau, m, mp, aqu_species)  # Checked
+                sum(_LC_term_2(b, pname, X, G, tau, m, mp, aqu_species)
                     for mp in molecular_set) +
-                sum(_LC_term_3(b, pname, X, G, tau, m, mp, aqu_species)  # Checked
+                sum(_LC_term_3(b, pname, X, G, tau, m, mp, aqu_species)
                     for mp in molecular_set) +
                 sum(_LC_term_2(b, pname, X, G, tau, m, c,
-                                aqu_species-b.params.cation_set)
+                               aqu_species-b.params.cation_set)
                     for c in b.params.cation_set) +
                 sum(_LC_term_3(b, pname, X, G, tau, m, c,
-                                aqu_species-b.params.cation_set)
+                               aqu_species-b.params.cation_set)
                     for c in b.params.cation_set) +
                 sum(_LC_term_2(b, pname, X, G, tau, m, a,
-                                aqu_species-b.params.anion_set)
+                               aqu_species-b.params.anion_set)
                     for a in b.params.anion_set) +
                 sum(_LC_term_3(b, pname, X, G, tau, m, a,
-                                aqu_species-b.params.anion_set)
-                    for a in b.params.anion_set)
-                )
+                               aqu_species-b.params.anion_set)
+                    for a in b.params.anion_set))
 
 
 def _LC_term_1(blk, pname, X, G, tau, i, j, k_set):

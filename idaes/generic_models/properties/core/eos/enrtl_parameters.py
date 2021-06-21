@@ -361,3 +361,10 @@ class InverseTau(object):
     def dT_expression(b, pobj, i, j, T):
         # Required for calculating d(ln(gamma))/dT
         return -pobj.tau_2[i, j]/b.temperature**2
+
+
+DefaultAlphaRule = ConstantAlpha
+DefaultTauRule = ConstantTau
+
+# Closest appraoch parameter
+ClosestApproach = 14.9
