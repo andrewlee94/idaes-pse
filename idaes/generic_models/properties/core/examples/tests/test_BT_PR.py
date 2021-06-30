@@ -44,6 +44,8 @@ prop_available = cubic_roots_available()
 # -----------------------------------------------------------------------------
 # Get default solver for testing
 solver = get_solver()
+# Limit iterations to make sure sweeps aren;t getting out of hand
+solver.options["max_iter"] = 50
 
 
 # -----------------------------------------------------------------------------
@@ -70,6 +72,7 @@ class TestBTExample(object):
         assert_units_consistent(m)
 
         m.fs.obj = Objective(expr=(m.fs.state[1].temperature - 510)**2)
+        m.fs.state[1].temperature.setub(600)
 
         for logP in range(8, 13, 1):
             m.fs.obj.deactivate()
@@ -85,11 +88,12 @@ class TestBTExample(object):
             m.fs.state[1].temperature.unfix()
             m.fs.obj.activate()
 
-            results = solver.solve(m, tee=True)
+            results = solver.solve(m)
 
             assert results.solver.termination_condition == \
                 TerminationCondition.optimal
             assert m.fs.state[1].flow_mol_phase["Liq"].value <= 1e-5
+        assert False
 
     @pytest.mark.integration
     def test_P_sweep(self, m):
