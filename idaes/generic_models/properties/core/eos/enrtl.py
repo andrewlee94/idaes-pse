@@ -28,6 +28,7 @@ ionic charge.
 """
 from pyomo.environ import Expression, exp, log, Set, units as pyunits
 
+from .eos_base import EoSBase
 from .ideal import Ideal
 from idaes.core.components import \
     IonData, ApparentData, SolventData, SoluteData
@@ -39,7 +40,7 @@ from idaes.generic_models.properties.core.generic.generic_property import \
     StateIndex
 from .enrtl_departure_functions import dlngamma_dT
 from idaes.core.util.constants import Constants
-from idaes.core.util.exceptions import BurntToast
+from idaes.core.util.exceptions import BurntToast, PropertyNotSupportedError
 import idaes.logger as idaeslog
 
 
@@ -50,7 +51,7 @@ _log = idaeslog.getLogger(__name__)
 DefaultRefState = Symmetric
 
 
-class ENRTL(Ideal):
+class ENRTL(EoSBase):
     # Add attribute indicating support for electrolyte systems
     electrolyte_support = True
 
@@ -95,6 +96,17 @@ class ENRTL(Ideal):
     @staticmethod
     def common(b, pobj):
         pname = pobj.local_name
+
+        # Support for Henry's Law components requires more work
+        # For now, raise an exception if Henry's components are found
+        # TODO: Add necessary equiations for Henry's Law
+        for j in b.component_list:
+            if (cobj(b, j).config.henry_component is not None and
+                    pobj.local_name in cobj(b, j).config.henry_component):
+                raise PropertyNotSupportedError(
+                    "{} eNRTL model implementation does not yet support "
+                    "Henry's components [{}, {}]."
+                    .format(b.name, pobj.local_name, j))
 
         molecular_set = b.params.solvent_set | b.params.solute_set
 

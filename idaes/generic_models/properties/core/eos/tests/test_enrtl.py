@@ -852,20 +852,20 @@ class TestProperties():
                         relative_permittivity_constant,
                     "parameter_data": {"mw": (18E-3, pyunits.kg/pyunits.mol),
                                        "relative_permittivity_liq_comp": 101,
-                                       "cp_mol_liq_comp_coeff": 4e3,
-                                       "enth_mol_form_liq_comp_ref": -285e3}},
+                                       "cp_mol_liq_comp_coeff": 100,
+                                       "enth_mol_form_liq_comp_ref": 0}},
             "NaCl": {"type": Apparent,
                      "dissociation_species": {"Na+": 1, "Cl-": 1}},
             "Na+": {"type": Cation,
                     "enth_mol_liq_comp": Constant,
                     "charge": +1,
-                    "parameter_data": {"cp_mol_liq_comp_coeff": 100,
-                                       "enth_mol_form_liq_comp_ref": 1000}},
+                    "parameter_data": {"cp_mol_liq_comp_coeff": 200,
+                                       "enth_mol_form_liq_comp_ref": 0}},
             "Cl-": {"type": Anion,
                     "enth_mol_liq_comp": Constant,
                     "charge": -1,
-                    "parameter_data": {"cp_mol_liq_comp_coeff": 200,
-                                       "enth_mol_form_liq_comp_ref": 2000}}},
+                    "parameter_data": {"cp_mol_liq_comp_coeff": 300,
+                                       "enth_mol_form_liq_comp_ref": 0}}},
         "phases": {
             "Liq": {"type": AqueousPhase,
                     "equation_of_state": ENRTL}},
@@ -876,8 +876,8 @@ class TestProperties():
                        "temperature": pyunits.K},
         "state_definition": FTPx,
         "state_components": StateIndex.true,
-        "pressure_ref": 1e5,
-        "temperature_ref": 300}
+        "pressure_ref": 101325,
+        "temperature_ref": 298.15}
 
     @pytest.fixture(scope="class")
     def model(self):
@@ -889,15 +889,30 @@ class TestProperties():
             [0], default={"defined_state": True})
 
         m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.9)
-        m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.05)
-        m.state[0].mole_frac_phase_comp["Liq", "H2O"].fix(0.05)
+        m.state[0].mole_frac_phase_comp["Liq", "Na+"].fix(0.05)
+        m.state[0].mole_frac_phase_comp["Liq", "Cl-"].fix(0.05)
         m.state[0].temperature.fix(298.15)
         m.state[0].pressure.fix(101325)
 
         return m
 
     def test_enth_mol_phase_comp(self, model):
-        # TODO: Add real test here
-        for i, v in model.state[0].enth_mol_phase_comp.items():
-            print(i, value(v))
-        assert False
+        # At reference state, so only contributions to enthalpy should be
+        # departure function
+        # Estiamte d ln(gamma)/d T by finite differences
+        h = {}
+        g1 = {}
+        g2 = {}
+        dg = {}
+        delT = 1e-8
+        for j in model.params.true_species_set:
+            h[j] = value(model.state[0].enth_mol_phase_comp["Liq", j])
+            g1[j] = value(model.state[0].Liq_log_gamma[j])
+
+        model.state[0].temperature.fix(298.15 + delT)
+
+        for j in model.params.true_species_set:
+            g2[j] = value(model.state[0].Liq_log_gamma[j])
+            dg[j] = (g2[j] - g1[j])/delT
+
+            assert h[j] == pytest.approx(-8.314*298.15**2*dg[j], rel=1e-4)
