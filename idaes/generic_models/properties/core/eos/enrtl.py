@@ -590,7 +590,8 @@ class ENRTL(EoSBase):
         ln_gamma = getattr(b, p+"_log_gamma_appr")
         return exp(ln_gamma[j])
 
-    # TODO: Update this to include effects of solutes and ions
+    # TODO: Need to add proper lqiuid molar volume models
+    # TODO: Liquid molar volume needs to provide integral_vol_mol_liq_comp
     @staticmethod
     def dens_mol_phase(b, p):
         return sum(b.get_mole_frac()[p, j] *
@@ -602,7 +603,7 @@ class ENRTL(EoSBase):
     def enth_mol_phase(b, p):
         return sum(b.mole_frac_phase_comp[p, j] *
                    ENRTL.enth_mol_phase_comp(b, p, j)
-                   for j in b.params.true_component_set
+                   for j in b.params.true_species_set
                    if (p, j) in b.params.true_phase_component_set)
 
     @staticmethod
@@ -632,6 +633,45 @@ class ENRTL(EoSBase):
         else:
             raise BurntToast("{} eNRTL enthl_mol_phase_comp method recieved "
                              "unexpected Component type {}.".format(b.name, j))
+
+    @staticmethod
+    def fug_phase_comp(b, p, j):
+        return (b.mole_frac_phase_comp[p, j] *
+                fug_liq_comp_pure(b, p, j, b.temperature))
+
+    @staticmethod
+    def fug_phase_comp_eq(b, p, j, pp):
+        return (b.mole_frac_phase_comp[p, j] *
+                fug_liq_comp_pure(b, p, j, b._teq[pp]))
+
+    @staticmethod
+    def log_fug_phase_comp_eq(b, p, j, pp):
+        return (log(b.mole_frac_phase_comp[p, j]) +
+                log(fug_liq_comp_pure(b, p, j, b._teq[pp])))
+
+    @staticmethod
+    def fug_coeff_phase_comp(b, p, j):
+        return fug_liq_comp_pure(b, p, j, b.temperature) / b.pressure
+
+    @staticmethod
+    def fug_coeff_phase_comp_eq(b, p, j, pp):
+        return fug_liq_comp_pure(b, p, j, b._teq[pp]) / b.pressure
+
+    @staticmethod
+    def log_fug_phase_comp_Tbub(b, p, j, pp):
+        raise NotImplementedError()
+
+    @staticmethod
+    def log_fug_phase_comp_Tdew(b, p, j, pp):
+        raise NotImplementedError()
+
+    @staticmethod
+    def log_fug_phase_comp_Pbub(b, p, j, pp):
+        raise NotImplementedError()
+
+    @staticmethod
+    def log_fug_phase_comp_Pdew(b, p, j, pp):
+        raise NotImplementedError()
 
 
 def log_gamma_lc(b, pname, s, X):
@@ -730,3 +770,31 @@ def log_gamma_lc(b, pname, s, X):
                       sum(X[i]*G[i, a]
                           for i in (aqu_species-b.params.anion_set))))
                     for a in b.params.anion_set))
+
+
+def integral_vol_mol_liq_comp(b, p, j):
+    # Integral of molar volume between Psat and P
+    return ((1/get_method(b, "dens_mol_liq_comp", j)(
+        b, cobj(b, j), b.temperature))*(
+            b.pressure - b.pressure_sat_comp[j]))
+
+
+def poynting_correction(b, p, j, T):
+    # Poynting pressure correction factor
+    return exp(1/(Constants.gas_constant*T)*integral_vol_mol_liq_comp(b, p, j))
+
+
+def fug_coeff_vap(b, j, P, T):
+    # Pure component vapor phase fugacity coefficient at given T and P
+    # TODO: For now just use ideal, but can extend later
+    return 1
+
+
+def fug_liq_comp_pure(b, p, j, T):
+    if j in b.params.ions_set:
+        # Ionic species do not have fugacity
+        return Expression.Skip
+    else:
+        return (fug_coeff_vap(b, j, b.pressure_sat_comp[j], T) *
+                get_method(b, "pressure_sat_comp", j)(b, cobj(b, j), T) *
+                poynting_correction(b, p, j, T))

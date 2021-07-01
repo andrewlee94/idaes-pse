@@ -27,15 +27,16 @@ _log = idaeslog.getLogger(__name__)
 
 class GenericPropertyPackageError(PropertyPackageError):
     # Error message for when a property is called for but no option provided
-    def __init__(self, block, prop):
+    def __init__(self, block, prop, index=None):
         self.prop = prop
         self.block = block
+        self.index = index
 
     def __str__(self):
         return f"Generic Property Package instance {self.block} called for " \
-               f"{self.prop}, but was not provided with a method " \
-               f"for this property. Please add a method for this property " \
-               f"in the property parameter configuration."
+               f"{self.prop} (index = {self.index}), but was not provided " \
+               f"with a method for this property. Please add a method for " \
+               f"this property in the property parameter configuration."
 
 
 def get_method(self, config_arg, comp=None, phase=None):
@@ -65,13 +66,18 @@ def get_method(self, config_arg, comp=None, phase=None):
     try:
         c_arg = getattr(source_block, config_arg)
     except AttributeError:
-        raise AttributeError("{} Generic Property Package called for invalid "
-                             "configuration option {}. Please contact the "
-                             "developer of the property package."
-                             .format(self.name, config_arg))
+        raise AttributeError(
+            f"{self.name} Generic Property Package called for invalid "
+            f"configuration option {config_arg} (comp={comp}, "
+            f"phase={phase}). Please contact the developer of the property "
+            f"package.")
 
     if c_arg is None:
-        raise GenericPropertyPackageError(self, config_arg)
+        if comp is None and phase is None:
+            index = None
+        else:
+            index = (phase, comp)
+        raise GenericPropertyPackageError(self, config_arg, index)
 
     # Check to see if c_arg has an attribute with the name of the config_arg
     # If so, assume c_arg is a class or module holding property subclasses

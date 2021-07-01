@@ -34,7 +34,9 @@ from idaes.core import (AqueousPhase,
                         Anion,
                         Cation)
 from idaes.core.util.constants import Constants
-from idaes.generic_models.properties.core.eos.enrtl import ENRTL
+from idaes.generic_models.properties.core.eos.enrtl import (
+    ENRTL, fug_coeff_vap, integral_vol_mol_liq_comp, poynting_correction,
+    fug_liq_comp_pure)
 from idaes.generic_models.properties.core.generic.generic_property import (
         GenericParameterBlock, StateIndex)
 from idaes.generic_models.properties.core.state_definitions import FTPx
@@ -42,6 +44,8 @@ from idaes.generic_models.properties.core.pure.electrolyte import \
     relative_permittivity_constant
 from idaes.generic_models.properties.core.pure.ConstantProperties import \
     Constant
+from idaes.generic_models.properties.core.pure.NIST import \
+    NIST
 from idaes.core.util.exceptions import ConfigurationError
 import idaes.logger as idaeslog
 
@@ -848,9 +852,14 @@ class TestProperties():
             "H2O": {"type": Solvent,
                     "dens_mol_liq_comp": dummy_class,
                     "enth_mol_liq_comp": Constant,
+                    "pressure_sat_comp": NIST,
                     "relative_permittivity_liq_comp":
                         relative_permittivity_constant,
                     "parameter_data": {"mw": (18E-3, pyunits.kg/pyunits.mol),
+                                       "pressure_sat_comp_coeff": {
+                                           "A": 5.4,
+                                           "B": 1839,
+                                           "C": -31.7},
                                        "relative_permittivity_liq_comp": 101,
                                        "cp_mol_liq_comp_coeff": 100,
                                        "enth_mol_form_liq_comp_ref": 0}},
@@ -899,7 +908,7 @@ class TestProperties():
     def test_enth_mol_phase_comp(self, model):
         # At reference state, so only contributions to enthalpy should be
         # departure function
-        # Estiamte d ln(gamma)/d T by finite differences
+        # Estimate d ln(gamma)/d T by finite differences
         h = {}
         g1 = {}
         g2 = {}
@@ -916,3 +925,44 @@ class TestProperties():
             dg[j] = (g2[j] - g1[j])/delT
 
             assert h[j] == pytest.approx(-8.314*298.15**2*dg[j], rel=1e-4)
+
+    def test_enth_mol_phase(self, model):
+        # At reference state, so only contributions to enthalpy should be
+        # departure function
+        # Estimate d ln(gamma)/d T by finite differences
+        model.state[0].temperature.fix(298.15)
+        h = value(model.state[0].enth_mol_phase["Liq"])
+        g1 = {}
+        g2 = {}
+        dg = {}
+        delT = 1e-8
+        for j in model.params.true_species_set:
+            g1[j] = value(model.state[0].Liq_log_gamma[j])
+
+        model.state[0].temperature.fix(298.15 + delT)
+
+        for j in model.params.true_species_set:
+            g2[j] = value(model.state[0].Liq_log_gamma[j])
+            dg[j] = (g2[j] - g1[j])/delT
+
+        assert h == pytest.approx(value(
+            -8.314*298.15**2 *
+            sum(model.state[0].mole_frac_phase_comp["Liq", j]*dg[j]
+                for j in model.params.true_species_set)),
+            rel=1e-4)
+
+    def test_fug_coeff_vap(self, model):
+        for j in model.params.component_list:
+            phi = fug_coeff_vap(model.state[0],
+                                j,
+                                model.state[0].pressure,
+                                model.state[0].temperature)
+            assert phi == 1
+
+    def test_integral_vol_mol_liq_comp(self, model):
+        for j in model.params.solvent_set | model.params.solute_set:
+            print(j)
+            e = integral_vol_mol_liq_comp(model.state[0], "Liq", j)
+            print(j, value(e))
+            assert value(e) == pytest.approx(
+                (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5), rel=1e-6)

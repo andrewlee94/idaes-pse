@@ -2623,6 +2623,10 @@ class GenericStateBlockData(StateBlockData):
     def _pressure_sat_comp(self):
         try:
             def rule_pressure_sat_comp(b, j):
+                if b.params._electrolyte and j in b.params.ion_set:
+                    # Ions do not have vapor pressure
+                    return Expression.Skip
+
                 cobj = b.params.get_component(j)
                 try:
                     return get_method(b, "pressure_sat_comp", j)(
