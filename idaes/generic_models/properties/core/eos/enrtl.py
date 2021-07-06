@@ -636,26 +636,46 @@ class ENRTL(EoSBase):
 
     @staticmethod
     def fug_phase_comp(b, p, j):
-        return (b.mole_frac_phase_comp[p, j] *
-                fug_liq_comp_pure(b, p, j, b.temperature))
+        if j in b.params.ion_set:
+            return Expression.Skip
+        else:
+            return (b.mole_frac_phase_comp[p, j] *
+                    b.act_phase_comp[p, j] *
+                    fug_liq_comp_pure(b, p, j, b.temperature))
 
     @staticmethod
     def fug_phase_comp_eq(b, p, j, pp):
-        return (b.mole_frac_phase_comp[p, j] *
-                fug_liq_comp_pure(b, p, j, b._teq[pp]))
+        if j in b.params.ion_set:
+            return Expression.Skip
+        else:
+            # TODO: Activity should really be calculated at _t_eq
+            return (b.mole_frac_phase_comp[p, j] *
+                    b.act_phase_comp[p, j] *
+                    fug_liq_comp_pure(b, p, j, b._teq[pp]))
 
     @staticmethod
     def log_fug_phase_comp_eq(b, p, j, pp):
-        return (log(b.mole_frac_phase_comp[p, j]) +
-                log(fug_liq_comp_pure(b, p, j, b._teq[pp])))
+        if j in b.params.ion_set:
+            return Expression.Skip
+        else:
+            # TODO: Activity should really be calculated at _t_eq
+            return (log(b.mole_frac_phase_comp[p, j]) +
+                    log(b.act_phase_comp[p, j]) +
+                    log(fug_liq_comp_pure(b, p, j, b._teq[pp])))
 
     @staticmethod
     def fug_coeff_phase_comp(b, p, j):
-        return fug_liq_comp_pure(b, p, j, b.temperature) / b.pressure
+        if j in b.params.ion_set:
+            return Expression.Skip
+        else:
+            return b.fug_phase_comp[p, j] / b.pressure
 
     @staticmethod
     def fug_coeff_phase_comp_eq(b, p, j, pp):
-        return fug_liq_comp_pure(b, p, j, b._teq[pp]) / b.pressure
+        if j in b.params.ion_set:
+            return Expression.Skip
+        else:
+            return b.fug_phase_comp_eq[p, j] / b.pressure
 
     @staticmethod
     def log_fug_phase_comp_Tbub(b, p, j, pp):

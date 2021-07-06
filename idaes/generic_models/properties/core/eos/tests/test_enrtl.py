@@ -888,6 +888,11 @@ class TestProperties():
         "pressure_ref": 101325,
         "temperature_ref": 298.15}
 
+    FUG_H2O = 8084.62
+    FUG_H2O_eq = 74168.67
+    ACT_H2O = 0.9002552
+    ACT_NaCl = 0.0502340
+
     @pytest.fixture(scope="class")
     def model(self):
         m = ConcreteModel()
@@ -903,8 +908,19 @@ class TestProperties():
         m.state[0].temperature.fix(298.15)
         m.state[0].pressure.fix(101325)
 
+        m.state[0]._teq = {"temp": 350*pyunits.K}
+
         return m
 
+    @pytest.mark.unit
+    def test_act_phase_comp(self, model):
+        for (p, c), v in model.state[0].act_phase_comp.items():
+            if c == "H2O":
+                assert value(v) == pytest.approx(self.ACT_H2O, rel=1e-6)
+            else:
+                assert value(v) == pytest.approx(self.ACT_NaCl, rel=1e-6)
+
+    @pytest.mark.unit
     def test_enth_mol_phase_comp(self, model):
         # At reference state, so only contributions to enthalpy should be
         # departure function
@@ -926,6 +942,7 @@ class TestProperties():
 
             assert h[j] == pytest.approx(-8.314*298.15**2*dg[j], rel=1e-4)
 
+    @pytest.mark.unit
     def test_enth_mol_phase(self, model):
         # At reference state, so only contributions to enthalpy should be
         # departure function
@@ -951,6 +968,7 @@ class TestProperties():
                 for j in model.params.true_species_set)),
             rel=1e-4)
 
+    @pytest.mark.unit
     def test_fug_coeff_vap(self, model):
         for j in model.params.component_list:
             phi = fug_coeff_vap(model.state[0],
@@ -959,12 +977,14 @@ class TestProperties():
                                 model.state[0].temperature)
             assert phi == 1
 
+    @pytest.mark.unit
     def test_integral_vol_mol_liq_comp(self, model):
         for j in model.params.solvent_set | model.params.solute_set:
             e = integral_vol_mol_liq_comp(model.state[0], "Liq", j)
             assert value(e) == pytest.approx(
                 (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5), rel=1e-6)
 
+    @pytest.mark.unit
     def test_poynting_correction(self, model):
         for j in model.params.solvent_set | model.params.solute_set:
             pc = poynting_correction(model.state[0], "Liq", j, 298.15)
@@ -973,12 +993,52 @@ class TestProperties():
                     (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5))),
                 rel=1e-6)
 
+    @pytest.mark.unit
     def test_fug_liq_comp_pure(self, model):
         for j in model.params.solvent_set | model.params.solute_set:
             f = fug_liq_comp_pure(model.state[0], "Liq", j, 298.15*pyunits.K)
-            assert value(f) == pytest.approx(value(
-                1 *
-                10**(5.4-1839/(298.15-31.7))*1e5 *
-                exp(1/(8.314462618*298.15) *
-                    (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5))),
-                rel=1e-6)
+            assert value(f) == pytest.approx(self.FUG_H2O, rel=1e-6)
+
+    @pytest.mark.unit
+    def test_fug_phase_comp(self, model):
+        model.state[0].temperature.fix(298.15)
+
+        for (p, c), v in model.state[0].fug_phase_comp.items():
+            if c == "H2O":
+                assert value(v) == pytest.approx(
+                    self.FUG_H2O*self.ACT_H2O*0.9, rel=1e-6)
+            else:
+                assert v is Expression.Skip
+
+    @pytest.mark.unit
+    def test_fug_coeff_phase_comp(self, model):
+        model.state[0].temperature.fix(298.15)
+
+        for (p, c), v in model.state[0].fug_coeff_phase_comp.items():
+            if c == "H2O":
+                assert value(v) == pytest.approx(
+                    self.FUG_H2O*self.ACT_H2O*0.9/101325, rel=1e-6)
+            else:
+                assert v is Expression.Skip
+
+    @pytest.mark.unit
+    def test_fug_phase_comp_eq(self, model):
+        model.state[0].temperature.fix(298.15)
+
+        for p, c in model.state[0].phase_component_set:
+            if c == "H2O":
+                assert value(ENRTL.fug_phase_comp_eq(model.state[0], p, c, "temp")) == pytest.approx(
+                    self.FUG_H2O_eq*self.ACT_H2O*0.9, rel=1e-6)
+            else:
+                assert ENRTL.fug_phase_comp_eq(model.state[0], p, c, "temp") is Expression.Skip
+
+    # @pytest.mark.unit
+    # def test_fug_coeff_phase_comp_eq(self, model):
+    #     model.state[0].temperature.fix(298.15)
+
+    #     for (p, c), v in model.state[0].fug_coeff_phase_comp_eq.items():
+    #         if c == "H2O":
+    #             assert value(v) == pytest.approx(
+    #                 self.FUG_H2O*self.ACT_H2O*0.9/101325, rel=1e-6)
+    #         else:
+    #             assert v is Expression.Skip
