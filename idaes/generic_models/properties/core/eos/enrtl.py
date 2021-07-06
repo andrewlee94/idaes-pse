@@ -649,6 +649,7 @@ class ENRTL(EoSBase):
             return Expression.Skip
         else:
             # TODO: Activity should really be calculated at _t_eq
+            # TODO: this also uses the molar volume at T in the calculations
             return (b.mole_frac_phase_comp[p, j] *
                     b.act_phase_comp[p, j] *
                     fug_liq_comp_pure(b, p, j, b._teq[pp]))
@@ -675,10 +676,11 @@ class ENRTL(EoSBase):
         if j in b.params.ion_set:
             return Expression.Skip
         else:
-            return b.fug_phase_comp_eq[p, j] / b.pressure
+            return ENRTL.fug_phase_comp_eq(b, p, j, pp) / b.pressure
 
     @staticmethod
     def log_fug_phase_comp_Tbub(b, p, j, pp):
+        # TODO: Add neccesary functions for VLE
         raise NotImplementedError()
 
     @staticmethod
