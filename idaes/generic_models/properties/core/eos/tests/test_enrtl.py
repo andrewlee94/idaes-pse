@@ -961,8 +961,24 @@ class TestProperties():
 
     def test_integral_vol_mol_liq_comp(self, model):
         for j in model.params.solvent_set | model.params.solute_set:
-            print(j)
             e = integral_vol_mol_liq_comp(model.state[0], "Liq", j)
-            print(j, value(e))
             assert value(e) == pytest.approx(
                 (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5), rel=1e-6)
+
+    def test_poynting_correction(self, model):
+        for j in model.params.solvent_set | model.params.solute_set:
+            pc = poynting_correction(model.state[0], "Liq", j, 298.15)
+            assert value(pc) == pytest.approx(value(
+                exp(1/(8.314462618*298.15) *
+                    (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5))),
+                rel=1e-6)
+
+    def test_fug_liq_comp_pure(self, model):
+        for j in model.params.solvent_set | model.params.solute_set:
+            f = fug_liq_comp_pure(model.state[0], "Liq", j, 298.15*pyunits.K)
+            assert value(f) == pytest.approx(value(
+                1 *
+                10**(5.4-1839/(298.15-31.7))*1e5 *
+                exp(1/(8.314462618*298.15) *
+                    (1/42)*(101325-10**(5.4-1839/(298.15-31.7))*1e5))),
+                rel=1e-6)

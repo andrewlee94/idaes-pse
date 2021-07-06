@@ -791,7 +791,7 @@ def fug_coeff_vap(b, j, P, T):
 
 
 def fug_liq_comp_pure(b, p, j, T):
-    if j in b.params.ions_set:
+    if j in b.params.ion_set:
         # Ionic species do not have fugacity
         return Expression.Skip
     else:
