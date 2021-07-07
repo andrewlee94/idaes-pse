@@ -631,8 +631,8 @@ class ENRTL(EoSBase):
                     Constants.gas_constant*b.temperature**2 *
                     dlngamma_dT(b, p, j, ref_state))
         else:
-            raise BurntToast("{} eNRTL enthl_mol_phase_comp method recieved "
-                             "unexpected Component type {}.".format(b.name, j))
+            raise BurntToast("{} eNRTL enth_mol_phase_comp method received "
+                             "unexpected component type {}.".format(b.name, j))
 
     @staticmethod
     def fug_phase_comp(b, p, j):
@@ -694,6 +694,49 @@ class ENRTL(EoSBase):
     @staticmethod
     def log_fug_phase_comp_Pdew(b, p, j, pp):
         raise NotImplementedError()
+
+    @staticmethod
+    def gibbs_mol_phase(b, p):
+        # Calcuate contributions separately.
+        # Solvent/molecular contributions
+        molecular_set = b.params.solvent_set | b.params.solute_set
+        Gs = (Constants.gas_constant*b.temperature *
+              (sum(b.mole_frac_phase_comp[p, j] *
+                   (log(b.fug_phase_comp[p, j]) +
+                    log(b.mole_frac_phase_comp[p, j]))
+                   for j in molecular_set) +
+               log(b.pressure/b.params.pressure_ref)) +
+              sum(b.mole_frac_phase_comp[p, j] * gibbs_mol_solvent(b, p, j)
+                  for j in molecular_set))
+
+        Gh = 0  # TODO: placeholder for Henry's components
+        ln_gamma = getattr(b, p+"_log_gamma")
+        Gi = (Constants.gas_constant*b.temperature *
+              (sum(b.mole_frac_phase_comp[p, j] *
+                   (log(b.mole_frac_phase_comp[p, j]) + ln_gamma[j])
+                   for j in b.params.ion_set)) +
+              sum(b.mole_frac_phase_comp[p, j] * gibbs_mol_ion(b, p, j)
+                  for j in b.params.ion_set))
+
+        return Gs + Gh + Gi
+
+    @staticmethod
+    def gibbs_mol_phase_comp(b, p, j):
+        # Pure component Gibbs energies are a pain.
+        raise NotImplementedError()
+
+
+def gibbs_mol_solvent(b, p, j):
+    return (get_method(b, "enth_mol_ig_comp", j)(
+                b, cobj(b, j), b.temperature) -
+            get_method(b, "entr_mol_ig_comp", j)(
+                b, cobj(b, j), b.temperature) *
+            b.temperature)
+
+
+def gibbs_mol_ion(b, p, j):
+    # TODO: Work out how to do this
+    return 0
 
 
 def log_gamma_lc(b, pname, s, X):

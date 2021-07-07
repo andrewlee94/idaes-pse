@@ -851,6 +851,8 @@ class TestProperties():
         "components": {
             "H2O": {"type": Solvent,
                     "dens_mol_liq_comp": dummy_class,
+                    "enth_mol_ig_comp": Constant,
+                    "entr_mol_ig_comp": Constant,
                     "enth_mol_liq_comp": Constant,
                     "pressure_sat_comp": NIST,
                     "relative_permittivity_liq_comp":
@@ -861,8 +863,11 @@ class TestProperties():
                                            "B": 1839,
                                            "C": -31.7},
                                        "relative_permittivity_liq_comp": 101,
+                                       "cp_mol_ig_comp_coeff": 100,
                                        "cp_mol_liq_comp_coeff": 100,
-                                       "enth_mol_form_liq_comp_ref": 0}},
+                                       "enth_mol_form_ig_comp_ref": 0,
+                                       "enth_mol_form_liq_comp_ref": 0,
+                                       "entr_mol_form_ig_comp_ref": 0}},
             "NaCl": {"type": Apparent,
                      "dissociation_species": {"Na+": 1, "Cl-": 1}},
             "Na+": {"type": Cation,
@@ -1046,3 +1051,7 @@ class TestProperties():
             else:
                 assert ENRTL.fug_coeff_phase_comp_eq(
                     model.state[0], p, c, "temp") is Expression.Skip
+
+    @pytest.mark.unit
+    def test_gibbs_mol_phase(self, model):
+        assert value(model.state[0].gibbs_mol_phase["Liq"]) == 0
