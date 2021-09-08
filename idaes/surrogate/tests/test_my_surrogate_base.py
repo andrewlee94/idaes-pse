@@ -14,19 +14,17 @@
 Tests for surrogate base class and functions.
 """
 # standard library
-import json
 import os
-from pathlib import Path
-import tempfile
 
 # third-party packages
 import pytest
 import numpy as np
-from idaes.surrogate.main import Pysmo_rbf, Pysmo_kriging, Pysmo_polyregression, \
-                                Alamopy, Metrics, GeneralSurrogate
-from pyomo.environ import Var, ConcreteModel, Objective
+from idaes.surrogate.main import \
+    Pysmo_rbf, Pysmo_kriging, Pysmo_polyregression, Metrics, GeneralSurrogate
+from pyomo.environ import Block, Var, ConcreteModel, Objective, Set
 
-import idaes.surrogate.alamopy as alamopy
+from idaes.surrogate.my_surrogate_base import SurrogateModelObject
+
 
 @pytest.fixture
 def branin_dataset():
@@ -49,35 +47,6 @@ def branin_dataset():
 
     return m, x, y
 
-@pytest.mark.unit
-def test_alamopy(branin_dataset):
-    m, x, y = branin_dataset
-
-    alamo_settings = {'monomialpower':(1, 2, 3, 4, 5, 6),
-                      'multi2power':(1, 2),
-                      'expandoutput':True}
-    modeler = Alamopy(**alamo_settings)
-
-    modeler.regressed_data(x, y)
-
-    has_alamo_flag = alamopy.multos.has_alamo()
-    if has_alamo_flag:
-
-        modeler.build_model()
-
-        print(modeler.get_results())
-        m.obj = Objective(expr=modeler._model)
-        m.pprint()
-
-        modeler.save_results('results.pickle', overwrite=True)
-
-        check_metrics(modeler.get_results())
-        # check_model_returns(modeler.get_model())
-    else:
-        with pytest.raises(alamopy.AlamoError):
-            modeler.build_model()
-
-    return True
 
 @pytest.mark.unit
 def test_pysmo_krig(branin_dataset):
@@ -100,6 +69,7 @@ def test_pysmo_krig(branin_dataset):
 
     return True
 
+
 @pytest.mark.component
 def test_pysmo_rbf(branin_dataset):
     m, x, y = branin_dataset
@@ -120,6 +90,7 @@ def test_pysmo_rbf(branin_dataset):
     check_metrics(modeler.get_results())
 
     return True
+
 
 @pytest.mark.unit
 def test_pysmo_poly(branin_dataset):
@@ -146,16 +117,13 @@ def test_pysmo_poly(branin_dataset):
     return True
 
 
-@pytest.mark.integration_test
 @pytest.mark.integration
 def test_general_interface(branin_dataset):
     m, x, y = branin_dataset
 
-    general_settings = {'alamopy':True, # default
-                        'pysmo_polyregression':True, #default
+    general_settings = {'pysmo_polyregression':True, #default
                         'pysmo_kriging':False, #default
                         'pysmo_rbf':False, #default
-                        'alamopy_rbf': False,
                         'linear':True,
                         # 'ratio': True,
                         'pyomo_vars': [m.x[1], m.x[2]],
@@ -184,6 +152,7 @@ def test_general_interface(branin_dataset):
 
 
 # Interface consistency
+# TOOO: What is this method meant for?
 def check_metrics(model_metrics):
 
     missing_keys = [Metrics.MSE, Metrics.Order]
@@ -192,3 +161,85 @@ def check_metrics(model_metrics):
     for k in keys:
         assert (k in model_metrics), "Results Dictionary is missing %s"%(k)
         model_metrics[k]
+
+
+class TestSurrogateModelObject():
+    @pytest.fixture
+    def smo(self):
+        smo = SurrogateModelObject("z1 = x1 + x2", ["x1", "x2"], ["z1"])
+
+        return smo
+
+    @pytest.mark.unit
+    def test_construct_variables_singleton(self, smo):
+        b = Block(concrete=True)
+
+        smo._construct_variables(b)
+
+        assert isinstance(b.x1, Var)
+        assert not b.x1.is_indexed()
+        assert b.x1.bounds == (None, None)
+        assert isinstance(b.x2, Var)
+        assert not b.x2.is_indexed()
+        assert b.x2.bounds == (None, None)
+        assert isinstance(b.z1, Var)
+        assert not b.z1.is_indexed()
+        assert b.z1.bounds == (None, None)
+
+    @pytest.mark.unit
+    def test_construct_variables_singleton_w_bounds(self, smo):
+        smo._input_bounds = {"x1": (0, 1), "x2": (10, 20)}
+
+        b = Block(concrete=True)
+
+        smo._construct_variables(b)
+
+        assert isinstance(b.x1, Var)
+        assert not b.x1.is_indexed()
+        assert b.x1.bounds == (0, 1)
+        assert isinstance(b.x2, Var)
+        assert not b.x2.is_indexed()
+        assert b.x2.bounds == (10, 20)
+        assert isinstance(b.z1, Var)
+        assert not b.z1.is_indexed()
+        assert b.z1.bounds == (None, None)
+
+    @pytest.mark.unit
+    def test_construct_variables_indexed(self, smo):
+        b = Block(concrete=True)
+        b.s = Set(initialize=[1, 2, 3])
+
+        smo._construct_variables(b, index_set=b.s)
+
+        assert isinstance(b.x1, Var)
+        assert b.x1.is_indexed()
+        assert isinstance(b.x2, Var)
+        assert b.x2.is_indexed()
+        assert isinstance(b.z1, Var)
+        assert b.z1.is_indexed()
+
+        for i in b.s:
+            assert b.x1[i].bounds == (None, None)
+            assert b.x2[i].bounds == (None, None)
+            assert b.z1[i].bounds == (None, None)
+
+    @pytest.mark.unit
+    def test_construct_variables_indexed_w_bounds(self, smo):
+        smo._input_bounds = {"x1": (0, 1), "x2": (10, 20)}
+
+        b = Block(concrete=True)
+        b.s = Set(initialize=[1, 2, 3])
+
+        smo._construct_variables(b, index_set=b.s)
+
+        assert isinstance(b.x1, Var)
+        assert b.x1.is_indexed()
+        assert isinstance(b.x2, Var)
+        assert b.x2.is_indexed()
+        assert isinstance(b.z1, Var)
+        assert b.z1.is_indexed()
+
+        for i in b.s:
+            assert b.x1[i].bounds == (0, 1)
+            assert b.x2[i].bounds == (10, 20)
+            assert b.z1[i].bounds == (None, None)

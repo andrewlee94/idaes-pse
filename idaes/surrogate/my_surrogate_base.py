@@ -16,11 +16,11 @@ Common Surrogate interface for IDAES.
 from pathlib import Path
 from typing import Dict
 import yaml
+from pyomo.environ import Var
 from pyomo.common.config import ConfigBlock, ConfigValue, ConfigList
+from pyomo.core.base.global_set import UnindexedComponent_set
 import os.path, pickle
 
-
-# from mypy_extensions import TypedDict
 
 class Metrics:
     """
@@ -54,25 +54,13 @@ class Metrics:
     R2 = "R2"
 
 
-class ConfigurationError(Exception):
-    """
-    IDAES exception to be used when configuration arguments are incorrect
-    or inconsistent.
-    """
-    pass
-
-
 # Single Surrogate Modeler
 class Surrogate:
     CONFIG = ConfigBlock()
 
-    # Common Declarations
-    # CONFIG.declare('overwrite', ConfigValue(default=None, domain=bool))
-    # CONFIG.declare('fname', ConfigValue(default=None, domain=str))
-
     def __init__(self, **settings):
         """
-        Initialization fo the Surrogate Class.
+        Initialization for the Surrogate Class.
         Keyword Args:
             settings            : Dictionary of user-defined configurations and settings for the selected surrogate model tool(s).
         Returns:
@@ -96,13 +84,20 @@ class Surrogate:
         self._b_built = False  # flag for regression
 
         # Data
+        self._input_labels = None
+        self._output_labels = None
+        self._input_max = None
+        self._input_min = None
         self._rdata_in = None
         self._rdata_out = None
         self._vdata_in = None
         self._vdata_out = None
+        self._n_inputs = None
+        self._n_outputs = None
 
         self.pkl_info = None
 
+    # TODO: Do we need this? It is not hard to set config args directly
     def modify_config(self, **kwargs):
         """
         The ``modify_config`` method allows users to define a new surrogate instance simply by modifying one or more of the
@@ -116,7 +111,7 @@ class Surrogate:
         self.config = self.CONFIG(kwargs)
 
     # Build
-
+    # TODO: Should we call this train_surrogate instead?
     def build_model(self):
         """
         The ``build_model`` method trains a surrogate model to an input dataset.
@@ -131,6 +126,7 @@ class Surrogate:
 
         pass
 
+    # TODO: Should we call this update_surrogate or retrain_surrogate instead?
     def update_model(self):
         """
         The ``update_model`` trains a new surrogate model based on the updated configuration/set-up defined by
@@ -196,6 +192,7 @@ class Surrogate:
         """
         return (self._vdata_in, self._vdata_out)
 
+    # TODO: This should be part of the SurrogateModel object instead
     def validation_data(self, v_in, v_out):  # 2D Numparray
         """
         The ``validation_data`` method initializes the Surrogate class with data for validating/testing the surrogate model after generation.
@@ -207,6 +204,7 @@ class Surrogate:
         self._vdata_out = v_out
 
     # Using regressed model
+    # TODO: This should be part of the SurrogateModel object instead
     # PYLINT-TODO: check if adding self as arg to fix pylint "undefined-variable 'self'" is valid
     def calculate_outputs(self, inputs):  # 2D Numparray, use pyomo expression
         """
@@ -303,3 +301,86 @@ class Surrogate:
             return
         except:
             raise Exception('File could not be loaded.')
+
+
+class SurrogateModelObject():
+    """
+    Base class for standard IDAES Surrogate Model object
+    """
+
+    def __init__(
+            self, surrogate, input_labels, output_labels, input_bounds=None):
+        self._surrogate = surrogate
+        self._input_labels = input_labels
+        self._output_labels = output_labels
+        self._input_bounds = input_bounds  # dict of bounds for each label
+
+    def populate_block(
+            self, block, variables=None, index_set=UnindexedComponent_set):
+        """
+        Placeholder method to populate a Pyomo Block with surrogate model
+        constraints.
+
+        Args:
+            block: Pyomo Block component to be populated with constraints.
+            variables: dict mapping surrogate variable labels to existing
+                Pyomo Vars (default=None). If no mapping provided,
+                construct_variables will be called to create a set of new Vars.
+            index_set: (optional) if provided, this will be used to index the
+                Constraints created. This must match the indexing Set of the
+                Vars provided in the variables argument.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError(
+            "SurrogateModel class has not implemented populate_block method.")
+
+    def evaluate_surrogate(self, inputs):
+        """
+        Placeholder method to evaluate surrogate model at a set of user
+        provided values.
+
+        Args:
+            inputs: numpy array of input values
+
+        Returns:
+            output: numpy array of output values evaluated at inputs
+        """
+        raise NotImplementedError(
+            "SurrogateModel class has not implemented an evaluate_surrogate "
+            "method.")
+
+    def _construct_variables(self, block, index_set=UnindexedComponent_set):
+        """
+        Private method used to construct variables when populating Pyomo Blocks
+        if no variable mapping is provided by the user. Variables will be given
+        names based on the labels used by the surroagate model.
+
+        Args:
+            block: Pyomo Block component to be populated with constraints
+            index_set: (optional) if provided, this will be used to index the
+                Vars created by this method.
+
+        Returns:
+            dict mapping surrogate variable labels to created Var components.
+            
+        """
+        var_map = {}
+
+        for v in self._input_labels:
+            if self._input_bounds is not None:
+                bounds = self._input_bounds[v]
+            else:
+                bounds = (None, None)
+
+            vobj = Var(index_set, bounds=bounds)
+            block.add_component(v, vobj)
+            var_map[v] = vobj
+
+        for v in self._output_labels:
+            vobj = Var(index_set)
+            block.add_component(v, vobj)
+            var_map[v] = vobj
+
+        return var_map
