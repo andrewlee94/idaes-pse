@@ -23,7 +23,7 @@ from idaes.surrogate.main import \
     Pysmo_rbf, Pysmo_kriging, Pysmo_polyregression, Metrics, GeneralSurrogate
 from pyomo.environ import Block, Var, ConcreteModel, Objective, Set
 
-from idaes.surrogate.my_surrogate_base import SurrogateModelObject
+from idaes.surrogate.my_surrogate_base import SurrogateObject
 
 
 @pytest.fixture
@@ -58,9 +58,9 @@ def test_pysmo_krig(branin_dataset):
     modeler = Pysmo_kriging(**pysmo_krg_settings)
 
     modeler.regressed_data(x, y)
-    modeler.build_model()
+    modeler.train_surrogate()
 
-    m.obj = Objective(expr=modeler._model)
+    m.obj = Objective(expr=modeler._surrogate)
     m.pprint()
 
     modeler.save_results('results.pickle', overwrite=True)
@@ -80,9 +80,9 @@ def test_pysmo_rbf(branin_dataset):
     modeler = Pysmo_rbf(**pysmo_rbf_settings)
 
     modeler.regressed_data(x, y)
-    modeler.build_model()
+    modeler.train_surrogate()
 
-    m.obj = Objective(expr=modeler._model)
+    m.obj = Objective(expr=modeler._surrogate)
     m.pprint()
 
     modeler.save_results('results.pickle', overwrite=True)
@@ -105,9 +105,9 @@ def test_pysmo_poly(branin_dataset):
     modeler = Pysmo_polyregression(**pysmo_pr_settings)
 
     modeler.regressed_data(x, y)
-    modeler.build_model()
+    modeler.train_surrogate()
 
-    m.obj = Objective(expr=modeler._model)
+    m.obj = Objective(expr=modeler._surrogate)
     m.pprint()
 
     modeler.save_results('results.pickle', overwrite=True)
@@ -136,9 +136,9 @@ def test_general_interface(branin_dataset):
     modeler = GeneralSurrogate(**general_settings)
 
     modeler.regressed_data(x, y)
-    modeler.build_model()
+    modeler.train_surrogate()
 
-    m.obj = Objective(expr=modeler._model)
+    m.obj = Objective(expr=modeler._surrogate)
     m.pprint()
 
     modeler.save_results('results.pickle', overwrite=True)
@@ -163,10 +163,10 @@ def check_metrics(model_metrics):
         model_metrics[k]
 
 
-class TestSurrogateModelObject():
+class TestSurrogateObject():
     @pytest.fixture
     def smo(self):
-        smo = SurrogateModelObject("z1 = x1 + x2", ["x1", "x2"], ["z1"])
+        smo = SurrogateObject("z1 = x1 + x2", ["x1", "x2"], ["z1"])
 
         return smo
 

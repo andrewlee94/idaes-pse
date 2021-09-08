@@ -11,7 +11,7 @@
 # license information.
 #################################################################################
 from idaes.surrogate.pysmo import polynomial_regression, radial_basis_function, kriging
-from idaes.surrogate.my_surrogate_base import Surrogate
+from idaes.surrogate.my_surrogate_base import SurrogateTrainer
 from idaes.surrogate.my_surrogate_base import Metrics
 
 import time
@@ -27,8 +27,8 @@ import pyomo.environ as pyo
 from pyomo.common.config import ConfigValue
 
 
-class GeneralSurrogate(Surrogate):
-    CONFIG = Surrogate.CONFIG()
+class GeneralSurrogate(SurrogateTrainer):
+    CONFIG = SurrogateTrainer.CONFIG()
 
     CONFIG.declare('pyomo_vars', ConfigValue(default=None, domain=list))
     CONFIG.declare('linear', ConfigValue(default=True, domain=bool))
@@ -57,10 +57,10 @@ class GeneralSurrogate(Surrogate):
         self._pysmo_rbf_settings = {}
         self._pysmo_pr_settings = {}
 
-        self._models = []
+        self._surrogates = []
 
-    def build_model(self):
-        super().build_model()
+    def train_surrogate(self):
+        super().train_surrogate()
 
         self.parse_config()
         # models = []
@@ -68,41 +68,41 @@ class GeneralSurrogate(Surrogate):
         modeler_krig = Pysmo_kriging(**self._pysmo_krg_settings)
         modeler_krig.regressed_data(self._rdata_in, self._rdata_out)
         if self.config['pysmo_kriging']:
-            modeler_krig.build_model()
-            self._models.append(modeler_krig)
+            modeler_krig.train_surrogate()
+            self._surrogates.append(modeler_krig)
 
         modeler_rbf = Pysmo_rbf(**self._pysmo_rbf_settings)
         modeler_rbf.regressed_data(self._rdata_in, self._rdata_out)
         if self.config['pysmo_rbf']:
-            modeler_rbf.build_model()
-            self._models.append(modeler_rbf)
+            modeler_rbf.train_surrogate()
+            self._surrogates.append(modeler_rbf)
 
         modeler_pr = Pysmo_polyregression(**self._pysmo_pr_settings)
         modeler_pr.regressed_data(self._rdata_in, self._rdata_out)
         if self.config['pysmo_polyregression']:
-            modeler_pr.build_model()
-            self._models.append(modeler_pr)
+            modeler_pr.train_surrogate()
+            self._surrogates.append(modeler_pr)
 
         best_metric = 10e16
         best_config = {}
-        for m in self._models:
+        for m in self._surrogates:
             metric = m.get_results()[self.config['metric']]
             # print(m, m.get_results()['SSE'], best_metric, metric)
             if best_metric > float(metric):
                 best_metric = metric
                 best_config = m.config
                 self._results = m.get_results()
-                self._model = m.get_model()
+                self._surrogate = m.get_surrogate()
 
         if not self.config['pysmo_rbf']:
-            self._models.append(modeler_rbf)
+            self._surrogates.append(modeler_rbf)
 
         if not self.config['pysmo_kriging']:
-            self._models.append(modeler_krig)
+            self._surrogates.append(modeler_krig)
 
         self.pkl_info['Run settings'] = best_config
         self.pkl_info['Results'] = self._results
-        self.pkl_info['Expression'] = self._model
+        self.pkl_info['Expression'] = self._surrogate
 
     def parse_config(self):
 
@@ -129,12 +129,12 @@ class GeneralSurrogate(Surrogate):
         max_order = self.config['maximum_polynomial_order']
         pow_list = np.arange(0.5, max_order + 1, 0.5)
 
-    def get_models(self):
-        return self._models
+    def get_surrogates(self):
+        return self._surrogates
 
 
-class Pysmo_rbf(Surrogate):
-    CONFIG = Surrogate.CONFIG()
+class Pysmo_rbf(SurrogateTrainer):
+    CONFIG = SurrogateTrainer.CONFIG()
 
     CONFIG.declare('basis_function', ConfigValue(default=None, domain=str))
     CONFIG.declare('solution_method', ConfigValue(default=None, domain=str))
@@ -147,8 +147,8 @@ class Pysmo_rbf(Surrogate):
         super().__init__(**settings)
         self.pysmo_rbf_results = None
 
-    def build_model(self):
-        super().build_model()
+    def train_surrogate(self):
+        super().train_surrogate()
         start_time = time.time()
         training_data = np.concatenate((self._rdata_in, self._rdata_out.reshape(self._rdata_out.size, 1)), axis=1)
         self.pyomo_vars = dict(
@@ -164,7 +164,7 @@ class Pysmo_rbf(Surrogate):
         self.pkl_info['Run settings'] = self.config
         self.pkl_info['Results'] = self._results
         self.pkl_info['pysmo result object'] = self.pysmo_rbf_results
-        self.pkl_info['Expression'] = self._model
+        self.pkl_info['Expression'] = self._surrogate
         self.pkl_info['Class initialization'] = prob_init
 
     def handle_results(self, feature_vec):
@@ -173,7 +173,7 @@ class Pysmo_rbf(Surrogate):
         self._results[Metrics.R2] = self.pysmo_rbf_results.R2
         # Generate Pyomo expression
         if self.pyomo_vars:
-            self._model = self.pysmo_rbf_results.generate_expression(self.pyomo_vars['pyomo_vars'])
+            self._surrogate = self.pysmo_rbf_results.generate_expression(self.pyomo_vars['pyomo_vars'])
         else:
             list_vars = []
             for i in feature_vec.keys():
@@ -181,11 +181,11 @@ class Pysmo_rbf(Surrogate):
             # PYLINT-TODO-FIX the method "rbf_generate_expression" does not exist for this class
             # maybe the name of the method should be "generate_expression" like in the self.pyomo_vars case?
             # pylint: disable=no-member
-            self._model = self.pysmo_rbf_results.rbf_generate_expression(list_vars)
+            self._surrogate = self.pysmo_rbf_results.rbf_generate_expression(list_vars)
 
 
-class Pysmo_kriging(Surrogate):
-    CONFIG = Surrogate.CONFIG()
+class Pysmo_kriging(SurrogateTrainer):
+    CONFIG = SurrogateTrainer.CONFIG()
 
     CONFIG.declare('numerical_gradients', ConfigValue(default=None, domain=bool))
     CONFIG.declare('regularization', ConfigValue(default=None, domain=bool))
@@ -197,8 +197,8 @@ class Pysmo_kriging(Surrogate):
         super().__init__(**settings)
         self.pysmo_kriging_results = None
 
-    def build_model(self):
-        super().build_model()
+    def train_surrogate(self):
+        super().train_surrogate()
         start_time = time.time()
         training_data = np.concatenate((self._rdata_in, self._rdata_out.reshape(self._rdata_out.size, 1)), axis=1)
         self.pyomo_vars = dict(
@@ -215,7 +215,7 @@ class Pysmo_kriging(Surrogate):
         self.pkl_info['Class initialization'] = prob_init
         self.pkl_info['Run settings'] = self.config
         self.pkl_info['Results'] = self._results
-        self.pkl_info['Expression'] = self._model
+        self.pkl_info['Expression'] = self._surrogate
 
     def handle_results(self, feature_vec):
         self._results[Metrics.RMSE] = self.pysmo_kriging_results.training_rmse
@@ -227,7 +227,7 @@ class Pysmo_kriging(Surrogate):
         for i in feature_vec.keys():
             list_vars.append(feature_vec[i])
         if self.pyomo_vars:
-            self._model = self.pysmo_kriging_results.generate_expression(self.pyomo_vars['pyomo_vars'])
+            self._surrogate = self.pysmo_kriging_results.generate_expression(self.pyomo_vars['pyomo_vars'])
         else:
             list_vars = []
             for i in feature_vec.keys():
@@ -235,11 +235,11 @@ class Pysmo_kriging(Surrogate):
             # PYLINT-TODO-FIX the method "kriging_generate_expression" does not exist for this class
             # maybe the name of the method should be "generate_expression" like in the self.pyomo_vars case?
             # pylint: disable=no-member
-            self._model = self.pysmo_kriging_results.kriging_generate_expression(list_vars)
+            self._surrogate = self.pysmo_kriging_results.kriging_generate_expression(list_vars)
 
 
-class Pysmo_polyregression(Surrogate):
-    CONFIG = Surrogate.CONFIG()
+class Pysmo_polyregression(SurrogateTrainer):
+    CONFIG = SurrogateTrainer.CONFIG()
 
     CONFIG.declare('number_of_crossvalidations', ConfigValue(default=None, domain=int))
     CONFIG.declare('maximum_polynomial_order', ConfigValue(default=None, domain=int))
@@ -255,8 +255,8 @@ class Pysmo_polyregression(Surrogate):
         super().__init__(**settings)
         self.pysmo_kriging_results = None
 
-    def build_model(self):
-        super().build_model()
+    def train_surrogate(self):
+        super().train_surrogate()
         start_time = time.time()
         training_data = np.concatenate((self._rdata_in, self._rdata_out.reshape(self._rdata_out.size, 1)), axis=1)
         self.pyomo_vars = dict((k, self.config[k]) for k in ['pyomo_vars'] if k in self.config)  # Extract variable list
@@ -284,7 +284,7 @@ class Pysmo_polyregression(Surrogate):
         self.pkl_info['Class initialization'] = prob_init
         self.pkl_info['Run settings'] = self.config
         self.pkl_info['Results'] = self._results
-        self.pkl_info['Expression'] = self._model
+        self.pkl_info['Expression'] = self._surrogate
 
     def handle_results(self, feature_vec):
         self._results[Metrics.RMSE] = np.sqrt(self.pysmo_polyregression_results.errors['MSE'])
@@ -296,9 +296,9 @@ class Pysmo_polyregression(Surrogate):
         for i in feature_vec.keys():
             list_vars.append(feature_vec[i])
         if self.pyomo_vars:
-            self._model = self.pysmo_polyregression_results.generate_expression(self.pyomo_vars['pyomo_vars'])
+            self._surrogate = self.pysmo_polyregression_results.generate_expression(self.pyomo_vars['pyomo_vars'])
         else:
             list_vars = []
             for i in feature_vec.keys():
                 list_vars.append(feature_vec[i])
-            self._model = self.pysmo_polyregression_results.generate_expression(list_vars)
+            self._surrogate = self.pysmo_polyregression_results.generate_expression(list_vars)

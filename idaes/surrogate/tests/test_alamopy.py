@@ -23,17 +23,17 @@ from pyomo.environ import Block, Var, Constraint
 from pyomo.common.tempfiles import TempfileManager
 
 from idaes.surrogate.alamopy_new import \
-    Alamopy, AlamoModelObject, Modelers, Screener, alamo
+    AlamoTrainer, AlamoObject, Modelers, Screener, alamo
 from idaes.core.util.exceptions import ConfigurationError
 
 
 dirpath = os.path.dirname(__file__)
 
 
-class TestAlamoSurrogateTrainer:
+class TestAlamoTrainer:
     @pytest.fixture
     def alm_obj(self):
-        alm_obj = Alamopy()
+        alm_obj = AlamoTrainer()
 
         alm_obj._n_inputs = 2
         alm_obj._n_outputs = 1
@@ -680,27 +680,27 @@ class TestAlamoSurrogateTrainer:
             'Model': mdict}
 
     @pytest.mark.unit
-    def test_build_surrogate_model_object(self, alm_obj):
+    def test_build_surrogate_object(self, alm_obj):
         alm_obj._trcfile = os.path.join(dirpath, "alamotrace.trc")
         trc = alm_obj.read_trace_file()
         alm_obj.populate_results(trc)
-        alm_obj.build_surrogate_model_object()
+        alm_obj.build_surrogate_object()
 
-        assert isinstance(alm_obj._model, AlamoModelObject)
-        assert alm_obj._model._surrogate == {
+        assert isinstance(alm_obj._surrogate, AlamoObject)
+        assert alm_obj._surrogate._surrogate == {
             'z1': (' z1 == 3.9999999999925446303450 * x1**2 - '
                    '4.0000000000020765611453 * x2**2 - '
                    '2.0999999999859380039879 * x1**4 + '
                    '4.0000000000043112180492 * x2**4 + '
                    '0.33333333332782633107172 * x1**6 + '
                    '0.99999999999972988273811 * x1*x2')}
-        assert alm_obj._model._input_labels == ["x1", "x2"]
-        assert alm_obj._model._output_labels == ["z1"]
-        assert alm_obj._model._input_bounds == {
+        assert alm_obj._surrogate._input_labels == ["x1", "x2"]
+        assert alm_obj._surrogate._output_labels == ["z1"]
+        assert alm_obj._surrogate._input_bounds == {
             "x1": (0, 5), "x2": (0, 10)}
 
 
-class TestAlamoSurrogate():
+class TestAlamoObject():
     @pytest.fixture
     def alm_surr1(self):
         surrogate = {
@@ -714,7 +714,7 @@ class TestAlamoSurrogate():
         output_labels = ["z1"]
         input_bounds = {"x1": (0, 5), "x2": (0, 10)}
 
-        alm_surr1 = AlamoModelObject(
+        alm_surr1 = AlamoObject(
             surrogate, input_labels, output_labels, input_bounds)
 
         return alm_surr1
@@ -808,7 +808,7 @@ class TestAlamoSurrogate():
         input_labels = ["x1", "x2"]
         output_labels = ["z1", "z2"]
 
-        alm_surr2 = AlamoModelObject(surrogate, input_labels, output_labels)
+        alm_surr2 = AlamoObject(surrogate, input_labels, output_labels)
 
         return alm_surr2
 
@@ -917,7 +917,7 @@ class TestAlamoSurrogate():
         input_labels = ["x1", "x2"]
         output_labels = ["z1"]
 
-        alm_surr3 = AlamoModelObject(surrogate, input_labels, output_labels)
+        alm_surr3 = AlamoObject(surrogate, input_labels, output_labels)
 
         return alm_surr3
 
@@ -952,7 +952,7 @@ class TestAlamoSurrogate():
 @pytest.mark.integration
 def test_workflow():
     # Test end-to-end workflow with a simple problem.
-    alm_obj = Alamopy()
+    alm_obj = AlamoTrainer()
 
     alm_obj._n_inputs = 2
     alm_obj._n_outputs = 1
@@ -981,7 +981,7 @@ def test_workflow():
     alm_obj.config.monomialpower = [2, 3, 4, 5, 6]
     alm_obj.config.multi2power = [1, 2]
 
-    rc, almlog = alm_obj.build_model()
+    rc, almlog = alm_obj.train_surrogate()
 
     # Check execution
     assert rc == 0
@@ -1018,23 +1018,23 @@ def test_workflow():
             "0.33333333332782683067208 * x1**6 + "
             "0.99999999999973088193883 * x1*x2"}
 
-    assert isinstance(alm_obj._model, AlamoModelObject)
-    assert alm_obj._model._surrogate == {
+    assert isinstance(alm_obj._surrogate, AlamoObject)
+    assert alm_obj._surrogate._surrogate == {
         'z1': ' z1 == 3.9999999999925432980774 * x1**2 - '
         '4.0000000000020792256805 * x2**2 - '
         '2.0999999999859380039879 * x1**4 + '
         '4.0000000000043085535140 * x2**4 + '
         '0.33333333332782683067208 * x1**6 + '
         '0.99999999999973088193883 * x1*x2'}
-    assert alm_obj._model._input_labels == ["x1", "x2"]
-    assert alm_obj._model._output_labels == ["z1"]
-    assert alm_obj._model._input_bounds == {
+    assert alm_obj._surrogate._input_labels == ["x1", "x2"]
+    assert alm_obj._surrogate._output_labels == ["z1"]
+    assert alm_obj._surrogate._input_bounds == {
         "x1": (-1.5, 1.5), "x2": (-1.5, 1.5)}
 
-    # Check populating a blokc to finish workflow
+    # Check populating a block to finish workflow
     blk = Block(concrete=True)
 
-    alm_obj._model.populate_block(blk)
+    alm_obj._surrogate.populate_block(blk)
 
     assert isinstance(blk.x1, Var)
     assert blk.x1.bounds == (-1.5, 1.5)

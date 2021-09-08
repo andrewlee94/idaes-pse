@@ -25,7 +25,7 @@ from pyomo.common.fileutils import Executable
 from pyomo.common.tempfiles import TempfileManager
 from pyomo.core.base.global_set import UnindexedComponent_set
 
-from idaes.surrogate.my_surrogate_base import Surrogate, SurrogateModelObject
+from idaes.surrogate.my_surrogate_base import SurrogateTrainer, SurrogateObject
 from idaes.core.util.exceptions import ConfigurationError
 
 
@@ -127,9 +127,9 @@ def IntNot01(val):
     return ans
 
 
-class Alamopy(Surrogate):
+class AlamoTrainer(SurrogateTrainer):
     """
-    Standard SurrogateModelTrainer for ALAMO.
+    Standard SurrogateTrainer for ALAMO.
 
     This defines a set of configuration options for ALAMO along with
     methods to read and write the ALAMO input and output files and to call
@@ -146,7 +146,7 @@ class Alamopy(Surrogate):
     # Single validation set, due to limitations of current API
     # Custom basis functions are not yet implemented
 
-    CONFIG = Surrogate.CONFIG()
+    CONFIG = SurrogateTrainer.CONFIG()
 
     CONFIG.declare('xfactor', ConfigValue(
         default=None,
@@ -461,12 +461,12 @@ class Alamopy(Surrogate):
         if self.config.alamo_path is not None:
             alamo.executable = self.config.alamo_path
 
-    def build_model(self):
+    def train_surrogate(self):
         """
-        General workflow method for training an ALAMO surrogate model.
+        General workflow method for training an ALAMO surrogate.
 
         Takes the existing data set and executes the ALAMO workflow to create
-        an AlamoModelObject based on the current configuration arguments.
+        an AlamoObject based on the current configuration arguments.
 
         Args:
             None
@@ -475,7 +475,7 @@ class Alamopy(Surrogate):
             rc : return code from calling ALAMO executable
             almlog : log of output from ALAMO executable
         """
-        super().build_model()
+        super().train_surrogate()
 
         # Get paths for temp files
         self.get_files()
@@ -492,7 +492,7 @@ class Alamopy(Surrogate):
 
             # Populate results and SurrogateModel object
             self.populate_results(trace_dict)
-            self.build_surrogate_model_object()
+            self.build_surrogate_object()
 
         finally:
             # Clean up temporary files if required
@@ -697,7 +697,7 @@ class Alamopy(Surrogate):
 
         if self._temp_context is None:
             self._temp_context = TempfileManager.push()
-        temp_dir = self._temp_context.mkdtemp()
+        temp_dir = self._temp_context.create_tempdir()
 
         # Add lst file to temp file manager
         cwd = os.getcwd()
@@ -818,9 +818,9 @@ class Alamopy(Surrogate):
         """
         self._results = trace_dict
 
-    def build_surrogate_model_object(self):
+    def build_surrogate_object(self):
         """
-        Method to construct an AlmaoModelObject from the current results
+        Method to construct an AlmaoObject from the current results
         object.
 
         Args:
@@ -834,7 +834,7 @@ class Alamopy(Surrogate):
             iname = self._input_labels[i]
             input_bounds[iname] = (self._input_min[i], self._input_max[i])
 
-        self._model = AlamoModelObject(
+        self._surrogate = AlamoObject(
             surrogate=self._results["Model"],
             input_labels=self._input_labels,
             output_labels=self._output_labels,
@@ -860,12 +860,12 @@ class Alamopy(Surrogate):
         self._temp_context = None
 
 
-class AlamoModelObject(SurrogateModelObject):
+class AlamoObject(SurrogateObject):
     """
-    Standard SurrogateModelObject for surrogates trained using ALAMO.
+    Standard SurrogateObject for surrogates trained using ALAMO.
 
     Contains methods to both populate a Pyomo Block with constraints
-    representing the surrogate and to evalaute the surrogate a set of user
+    representing the surrogate and to evaluate the surrogate a set of user
     provided points.
     """
 
@@ -912,7 +912,7 @@ class AlamoModelObject(SurrogateModelObject):
                 Pyomo Vars (default=None). If no mapping provided,
                 construct_variables will be called to create a set of new Vars.
             index_set: (optional) if provided, this will be used to index the
-                Constraints created. This must match the indexing Set of the
+                Constraints created. This must match the indexing set of the
                 Vars provided in the variables argument.
 
         Returns:
