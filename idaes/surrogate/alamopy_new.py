@@ -15,8 +15,8 @@ import subprocess
 from io import StringIO
 import sys
 import os
-from copy import deepcopy
 import numpy as np
+import json
 
 from pyomo.environ import Constraint, value, sin, cos, log, exp, Set
 from pyomo.common.config import ConfigValue, In, Path, ListOf, Bool
@@ -25,7 +25,7 @@ from pyomo.common.fileutils import Executable
 from pyomo.common.tempfiles import TempfileManager
 from pyomo.core.base.global_set import UnindexedComponent_set
 
-from idaes.surrogate.my_surrogate_base import SurrogateTrainer, SurrogateObject
+from idaes.surrogate.surrogate_base import SurrogateTrainer, SurrogateBase
 from idaes.core.util.exceptions import ConfigurationError
 
 
@@ -444,6 +444,11 @@ class AlamoTrainer(SurrogateTrainer):
         domain=str,
         description="File name to use for ALAMO files - must be full path. "
         "If this option is not None, then working files will not be deleted."))
+    CONFIG.declare("working_directory", ConfigValue(
+        default=None,
+        domain=str,
+        description="Full path to working directory for ALAMO to use. "
+        "If this option is not None, then working files will not be deleted."))
     CONFIG.declare("overwrite_files", ConfigValue(
         default=False,
         domain=Bool,
@@ -474,8 +479,6 @@ class AlamoTrainer(SurrogateTrainer):
             rc : return code from calling ALAMO executable
             almlog : log of output from ALAMO executable
         """
-        super().train_surrogate()
-
         # Get paths for temp files
         self.get_files()
 
@@ -512,7 +515,7 @@ class AlamoTrainer(SurrogateTrainer):
         Returns:
             None
         """
-        self._temp_context = TempfileManager.push()
+        self._temp_context = TempfileManager.new_context()
 
         if self.config.filename is None:
             # Get a temporary file from the manager
@@ -531,12 +534,18 @@ class AlamoTrainer(SurrogateTrainer):
 
             self._temp_context.add_tempfile(almfile, exists=False)
 
-        trcfile = almfile.split(".")[0] + ".trc"
+        trcfile = os.path.splitext(almfile)[0] + ".trc"
         self._temp_context.add_tempfile(trcfile, exists=False)
+        
+        if self.config.working_directory is None:
+            wrkdir = self._temp_context.create_tempdir()
+        else:
+            wrkdir = self.config.working_directory
 
         # Set attributes to track file names
         self._almfile = almfile
         self._trcfile = trcfile
+        self._wrkdir = wrkdir
 
     def write_alm_to_stream(
             self, stream, trace_fname=None, x_reg=None,
@@ -559,42 +568,50 @@ class AlamoTrainer(SurrogateTrainer):
             None
         """
         if x_reg is None:
-            x_reg = self._rdata_in
+            x_reg = self._training_data_in
         if z_reg is None:
-            z_reg = self._rdata_out
+            z_reg = self._training_data_out
         if x_val is None:
-            x_val = self._vdata_in
+            x_val = self._validation_data_in
         if z_val is None:
-            z_val = self._vdata_out
+            z_val = self._validation_data_out
 
         # Check bounds on inputs to avoid potential ALAMO failures
-        for i in range(len(self._input_labels)):
-            if self._input_max[i] == self._input_min[i]:
+        input_max = list()
+        input_min = list()
+        for k, b in self._input_bounds.items():
+            if b is None or b[0] is None or b[1] is None:
+                raise ConfigurationError(
+                    f"ALAMO configuration error: invalid bounds on input {k} "
+                    f"({b}).")
+            elif b[0] == b[1]:
                 raise ConfigurationError(
                     f"ALAMO configuration error: upper and lower bounds on "
-                    f"input {self._input_labels[i]} are equal.")
-            elif self._input_max[i] < self._input_min[i]:
+                    f"input {k} are equal.")
+            elif b[1] < b[0]:
                 raise ConfigurationError(
-                    f"ALAMO configuration error: upper bounds is less than "
-                    f"lower bounds for input {self._input_labels[i]}.")
+                    f"ALAMO configuration error: upper bound is less than "
+                    f"lower bound for input {k}.")
+            input_min.append(b[0])
+            input_max.append(b[1])
 
         # Get number of data points to build alm file
         if x_reg is not None:
-            n_inputs, n_rdata = x_reg.shape
+            n_rdata, n_inputs = x_reg.shape
         else:
             n_rdata = 0
         if x_val is not None:
-            n_inputs, n_vdata = x_val.shape
+            n_vdata, n_inputs = x_val.shape
         else:
             n_vdata = 0
 
         stream.write("# IDAES Alamopy input file\n")
-        stream.write(f"NINPUTS {self._n_inputs}\n")
-        stream.write(f"NOUTPUTS {self._n_outputs}\n")
+        stream.write(f"NINPUTS {len(self._input_labels)}\n")
+        stream.write(f"NOUTPUTS {len(self._output_labels)}\n")
         stream.write(f"XLABELS {' '.join(map(str, self._input_labels))}\n")
         stream.write(f"ZLABELS {' '.join(map(str, self._output_labels))}\n")
-        stream.write(f"XMIN {' '.join(map(str, self._input_min))}\n")
-        stream.write(f"XMAX {' '.join(map(str, self._input_max))}\n")
+        stream.write(f"XMIN {' '.join(map(str, input_min))}\n")
+        stream.write(f"XMAX {' '.join(map(str, input_max))}\n")
         stream.write(f"NDATA {n_rdata}\n")
         if x_val is not None:
             stream.write(f"NVALDATA {n_vdata}\n")
@@ -637,12 +654,12 @@ class AlamoTrainer(SurrogateTrainer):
             stream.write(f"TRACEFNAME {trace_fname}\n")
 
         stream.write("\nBEGIN_DATA\n")
-        nin = self._n_inputs
-        nout = self._n_outputs
+        nin = len(self._input_labels)
+        nout = len(self._output_labels)
         for row in range(n_rdata):
             stream.write(
-                f"{' '.join(map(str, (x_reg[x][row] for x in range(nin))))}"
-                f" {' '.join(map(str, (z_reg[z][row] for z in range(nout))))}\n")
+                f"{' '.join(map(str, (x_reg[row][x] for x in range(nin))))}"
+                f" {' '.join(map(str, (z_reg[row][z] for z in range(nout))))}\n")
         stream.write("END_DATA\n")
 
         if x_val is not None:
@@ -650,8 +667,8 @@ class AlamoTrainer(SurrogateTrainer):
             stream.write("\nBEGIN_VALDATA\n")
             for row in range(n_vdata):
                 stream.write(
-                    f"{' '.join(map(str, (x_val[x][row] for x in range(nin))))}"
-                    f" {' '.join(map(str, (z_val[z][row] for z in range(nout))))}\n")
+                    f"{' '.join(map(str, (x_val[row][x] for x in range(nin))))}"
+                    f" {' '.join(map(str, (z_val[row][z] for z in range(nout))))}\n")
             stream.write("END_VALDATA\n")
 
         if self.config.custom_basis_functions is not None:
@@ -695,19 +712,22 @@ class AlamoTrainer(SurrogateTrainer):
         ostreams = [StringIO(), sys.stdout]
 
         if self._temp_context is None:
-            self._temp_context = TempfileManager.push()
-        temp_dir = self._temp_context.create_tempdir()
+            self.get_files()
+
+        # Set working directory
+        cwd = os.getcwd()
+        os.chdir(self._wrkdir)
 
         # Add lst file to temp file manager
-        cwd = os.getcwd()
-        lstfname = os.path.basename(self._almfile).split(".")[0] + ".lst"
+        lstfname = os.path.splitext(
+            os.path.basename(self._almfile))[0] + ".lst"
         lstpath = os.path.join(cwd, lstfname)
         self._temp_context.add_tempfile(lstpath, exists=False)
 
         try:
             with TeeStream(*ostreams) as t:
                 results = subprocess.run(
-                    [alamo.executable, str(self._almfile), str(temp_dir)],
+                    [alamo.executable, str(self._almfile)],
                     stdout=t.STDOUT,
                     stderr=t.STDERR,
                     universal_newlines=True,
@@ -722,8 +742,12 @@ class AlamoTrainer(SurrogateTrainer):
             raise OSError(
                 f'Could not execute the command: alamo {str(self._almfile)}. '
                 f'Error message: {sys.exc_info()[1]}.')
+        finally:
+            # Revert cwd to where it started
+            os.chdir(cwd)
 
         if "ALAMO terminated with termination code " in almlog:
+            self.remove_temp_files()
             raise RuntimeError(
                 "ALAMO executable returned non-zero return code. Check "
                 "the ALAMO output for more information.")
@@ -759,8 +783,8 @@ class AlamoTrainer(SurrogateTrainer):
         # Get trace output from final line(s) of file
         # ALAMO will append new lines to existing trace files
         # For multiple outputs, each output has its own line in trace file
-        for j in range(self._n_outputs):
-            trace = lines[-self._n_outputs+j].split(", ")
+        for j in range(len(self._output_labels)):
+            trace = lines[-len(self._output_labels)+j].split(", ")
 
             for i in range(len(headers)):
                 header = headers[i].strip("#\n")
@@ -828,16 +852,11 @@ class AlamoTrainer(SurrogateTrainer):
         Returns:
             NOne
         """
-        input_bounds = {}
-        for i in range(len(self._input_labels)):
-            iname = self._input_labels[i]
-            input_bounds[iname] = (self._input_min[i], self._input_max[i])
-
         self._surrogate = AlamoObject(
             surrogate=self._results["Model"],
             input_labels=self._input_labels,
             output_labels=self._output_labels,
-            input_bounds=input_bounds)
+            input_bounds=self._input_bounds)
 
     def remove_temp_files(self):
         """
@@ -859,7 +878,7 @@ class AlamoTrainer(SurrogateTrainer):
         self._temp_context = None
 
 
-class AlamoObject(SurrogateObject):
+class AlamoObject(SurrogateBase):
     """
     Standard SurrogateObject for surrogates trained using ALAMO.
 
@@ -870,15 +889,8 @@ class AlamoObject(SurrogateObject):
 
     def __init__(
             self, surrogate, input_labels, output_labels, input_bounds=None):
-        super().__init__(surrogate, input_labels, output_labels, input_bounds)
-
-        # Create a set of lambda functions for evaluating the surrogate.
-        self._fcn = {}
-        for o in self._output_labels:
-            self._fcn[o] = eval(
-                f"lambda {', '.join(self._input_labels)}: "
-                f"{self._surrogate[o].split('==')[1]}",
-                GLOBAL_FUNCS)
+        super(AlamoObject, self).__init__(
+            surrogate, input_labels, output_labels, input_bounds)
 
     def evaluate_surrogate(self, inputs):
         """
@@ -892,21 +904,32 @@ class AlamoObject(SurrogateObject):
             outputs: numpy array of values for all outputs evaluated at input
                 points.
         """
+        # Create a set of lambda functions for evaluating the surrogate.
+        fcn = dict()
+        for o in self._output_labels:
+            fcn[o] = eval(
+                f"lambda {', '.join(self._input_labels)}: "
+                f"{self._surrogate[o].split('==')[1]}",
+                GLOBAL_FUNCS)
+
         outputs = np.zeros(shape=(len(self._output_labels), inputs.shape[1]))
 
         for i in range(inputs.shape[1]):
             for o in range(len(self._output_labels)):
                 o_name = self._output_labels[o]
-                outputs[o, i] = value(self._fcn[o_name](*inputs[:, i]))
+                outputs[o, i] = value(fcn[o_name](*inputs[:, i]))
         return outputs
 
-    def populate_block(
-            self, block, variables=None, index_set=None):
+    def populate_block(self, block, **kwargs):
         """
         Method to populate a Pyomo Block with surrogate model constraints.
 
         Args:
             block: Pyomo Block component to be populated with constraints.
+        """
+        # TODO: Let's discuss the use of variables and index_set - this should
+        # be promoted to the SurrogateBlock if needed?
+        """
             variables: dict mapping surrogate variable labels to existing
                 Pyomo Vars (default=None). If no mapping provided,
                 construct_variables will be called to create a set of new Vars.
@@ -917,6 +940,11 @@ class AlamoObject(SurrogateObject):
         Returns:
             None
         """
+        # TODO: Let's discuss the use of index_set
+        """
+        variables = kwargs.pop('variables', None)
+        index_set = kwargs.pop('index_set', None)
+
         if index_set is None:
             var_index_set = UnindexedComponent_set
             con_index_set = Set(initialize=self._output_labels)
@@ -931,6 +959,8 @@ class AlamoObject(SurrogateObject):
         def alamo_rule(b, o, *args):
             # If we have more than 1 argument, it means we have an index_set
             # Need to get the var_data from the indexed vars
+    
+            # ** TODO ** This deepcopy was breaking things
             lvars = deepcopy(variables)
             if len(args) > 0:
                 for k, v in variables.items():
@@ -941,3 +971,89 @@ class AlamoObject(SurrogateObject):
             "alamo_constraint",
             Constraint(con_index_set,
                        rule=alamo_rule))
+        """
+        # TODO: do we need to add the index_set stuff back in?
+        output_set = Set(initialize=self._output_labels, ordered=True)
+        def alamo_rule(b, o):
+            lvars = block._input_vars_as_dict()
+            lvars.update(block._output_vars_as_dict())
+            return eval(self._surrogate[o], GLOBAL_FUNCS, lvars)
+
+        block.alamo_constraint = Constraint(output_set, rule=alamo_rule)
+
+    def to_json(self, stream):
+        """
+        Method to serialize surrogate object data in json form and write to a
+        stream.
+
+        Args:
+            stream - output stream for json string
+
+        Retruns:
+            stream
+        """
+        json.dump({"surrogate": self._surrogate,
+                   "input_labels": self._input_labels,
+                   "output_labels": self._output_labels,
+                   "input_bounds": self._input_bounds},
+                  stream)
+
+        return stream
+
+    def from_json(self, js):
+        """
+        Method to populate surrogate model attribtues based on data stored in
+        a json string.
+
+        Args:
+            js - string with json representation of surrogate object
+        """
+        d = json.loads(js)
+
+        self._surrogate = d["surrogate"]
+        self._input_labels = d["input_labels"]
+        self._output_labels = d["output_labels"]
+
+        # Need to convert list of bounds to tuples
+        self._input_bounds = {}
+        for k, v in d["input_bounds"].items():
+            self._input_bounds[k] = tuple(v)
+
+    def save(self, filename, overwrite=False):
+        """
+        Method to save surrogate object data to file in json format.
+
+        Args:
+            filename - path of destination file
+            overwrite - wheterh to overwrite existing files (default = False)
+        """
+        if overwrite:
+            arg = "w"
+        else:
+            arg = "x"
+
+        f = open(filename, arg)
+        self.to_json(f)
+        f.close()
+
+    @staticmethod
+    def load(filename):
+        """
+        Static method to create an AlamoObject from contents of a json file.
+
+        Useage: surrogate = AlamoObject.load(filename)
+
+        Args:
+            filename - path of json file to load
+
+        Returns:
+            AlamoObject with data loaded from json file
+        """
+        with open(filename, "r") as f:
+            js = f.read()
+        f.close()
+
+        alm_surr = AlamoObject({}, [], [])
+        alm_surr.from_json(js)
+
+        return alm_surr
