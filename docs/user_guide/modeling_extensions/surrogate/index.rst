@@ -1,4 +1,3 @@
-
 Surrogate modeling
 ==================
 
@@ -9,6 +8,7 @@ Surrogate modeling
     ripe/index
     helmet/index
     pysmo/index
+    plotting/index
 
 .. image:: /images/ddm-software.png
     :width: 600px
@@ -26,3 +26,8 @@ access ALAMO and other solvers through the Python API.
 Python-based Surrogate Modeling Objects (PySMO) is a framework for general-purpose
 surrogate modeling techniques, integrated with the Pyomo mathematical optimization
 framework (on which IDAES is also based).
+
+The associated visualization module contains a number of methods to assess surrogate 
+model results, independent of the choice of surrogate model training method. The
+main plotting methods rely soley on built-in Python functions as well as some basic
+dependencies (numpy, matplotlib and itertools).
