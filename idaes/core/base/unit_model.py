@@ -166,11 +166,13 @@ Must be True if dynamic = True,
         """
         # Create Port
         try:
-            p = block.build_port(self, name, doc)
+            # FIXME: What if name is None here? We probably need a default.
+            p = block.build_port_and_add(self, name, doc)
         except AttributeError:
             raise ConfigurationError(
                 f"{self.name} block object provided to add_port method is not an "
-                f"instance of a StateBlock object (does not have a build_port method)."
+                f"instance of a StateBlock object (does not have a "
+                f"build_port_and_add method)."
             )
 
         return p
@@ -232,7 +234,7 @@ Must be True if dynamic = True,
             # Work out if this is a 0D or 1D block
             try:
                 # Try 0D first
-                p = block.properties_in.build_port(self, name, doc)
+                p = block.properties_in.build_port_and_add(self, name, doc)
             except AttributeError:
                 # Otherwise a 1D control volume
                 try:
@@ -244,7 +246,7 @@ Must be True if dynamic = True,
                     elif block._flow_direction == FlowDirection.backward:
                         _idx = block.length_domain.last()
 
-                    p = sblock.build_port(
+                    p = sblock.build_port_and_add(
                         self, name, doc, slice_index=(slice(None), _idx)
                     )
 
@@ -256,7 +258,7 @@ Must be True if dynamic = True,
                     )
         else:
             # Assume a StateBlock indexed only by time
-            p = block.build_port(self, name, doc)
+            p = block.build_port_and_add(self, name, doc)
 
         return p
 
@@ -319,7 +321,7 @@ Must be True if dynamic = True,
             # Work out if this is a 0D or 1D block
             try:
                 # Try 0D first
-                p = block.properties_out.build_port(self, name, doc)
+                p = block.properties_out.build_port_and_add(self, name, doc)
             except AttributeError:
                 # Otherwise a 1D control volume
                 try:
@@ -331,7 +333,7 @@ Must be True if dynamic = True,
                     elif block._flow_direction == FlowDirection.forward:
                         _idx = block.length_domain.last()
 
-                    p = sblock.build_port(
+                    p = sblock.build_port_and_add(
                         self, name, doc, slice_index=(slice(None), _idx)
                     )
 
@@ -343,7 +345,7 @@ Must be True if dynamic = True,
                     )
         else:
             # Assume a StateBlock indexed only by time
-            p = block.build_port(self, name, doc)
+            p = block.build_port_and_add(self, name, doc)
 
         return p
 

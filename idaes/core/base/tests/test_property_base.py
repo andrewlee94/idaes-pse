@@ -447,7 +447,7 @@ def test_StateBlock_build_port_1index():
     m.test_block = Block()
 
     # Build the Port
-    m.state_block.build_port(m.test_block, "test_port", "test_doc")
+    m.state_block.build_port_and_add(m.test_block, "test_port", "test_doc")
 
     # Check References were constructed on test block
     assert isinstance(m.test_block._ScalarVar_test_port_ref, Var)
@@ -496,7 +496,7 @@ def test_StateBlock_build_port_2index():
     m.test_block = Block()
 
     # Build the Port
-    m.state_block.build_port(m.test_block, "test_port", "test_doc")
+    m.state_block.build_port_and_add(m.test_block, "test_port", "test_doc")
 
     # Check References were constructed on test block
     assert isinstance(m.test_block._ScalarVar_test_port_ref, Var)
@@ -547,7 +547,7 @@ def test_StateBlock_build_port_2index_subset():
     m.test_block = Block()
 
     # Build the Port
-    m.state_block.build_port(
+    m.state_block.build_port_and_add(
         m.test_block, "test_port", "test_doc", slice_index=(slice(None), 10)
     )
 

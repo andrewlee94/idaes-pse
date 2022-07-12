@@ -513,7 +513,7 @@ class StateBlock(ProcessBlock):
         """
         return "_%s_%s_ref" % (component_name, port_name)
 
-    def build_port(
+    def build_port_and_add(
         self,
         target_block,
         port_name,
@@ -522,7 +522,8 @@ class StateBlock(ProcessBlock):
         index=None,
     ):
         """
-        Constructs a Port based on this StateBlock attached to the target block.
+        Constructs a Port based on this StateBlock and adds it to the target
+        block.
 
         Args:
             target_block - block to which Port should be attached
@@ -530,9 +531,47 @@ class StateBlock(ProcessBlock):
             doc - doc string or Prot object
             slice_index - Slice index (e.g. (slice(None), 0.0) that will be
                 used to index self when constructing port references.
+            index - The index at which to access this StateBlock to call
+                define_port_members
 
         Returns:
             Port object
+
+        """
+        port, ref_name_list = self.build_port_and_references(
+            port_name,
+            doc=doc,
+            slice_index=slice_index,
+            index=index,
+        )
+        target_block.add_component(port_name, port)
+        for ref, name in ref_name_list:
+            ref_name = self.get_port_reference_name(name, port_name)
+            target_block.add_component(ref_name, ref)
+        return port
+
+    def build_port_and_references(
+        self,
+        port_name,
+        doc=None,
+        slice_index=None,
+        index=None,
+    ):
+        """
+        Constructs a Port based on this StateBlock.
+
+        Args:
+            port_name - name to use for Port
+            doc - doc string or Prot object
+            slice_index - Slice index (e.g. (slice(None), 0.0) that will be
+                used to index self when constructing port references.
+            index - The index at which to access this StateBlock to call
+                define_port_members
+
+        Returns:
+            Port object and list of name, reference tuples corresponding to
+            the port members
+
         """
         if slice_index is None:
             slice_index = Ellipsis
@@ -540,15 +579,14 @@ class StateBlock(ProcessBlock):
             index = self.index_set().first()
 
         # Create empty Port
-        p = Port(doc=doc)
-        # Add port to the target block
-        setattr(target_block, port_name, p)
+        port = Port(doc=doc)
 
         # Get dict of Port members and names
         # Need to get a representative member of StateBlockDatas
         port_member_dict = self[index].define_port_members()
 
         # Create References for port members
+        ref_name_list = []
         for name, component in port_member_dict.items():
             if not component.is_indexed():
                 slicer = self[slice_index].component(component.local_name)
@@ -556,14 +594,12 @@ class StateBlock(ProcessBlock):
                 slicer = self[slice_index].component(component.local_name)[...]
 
             ref = Reference(slicer)
-            ref_name = self.get_port_reference_name(name, port_name)
-            # Add reference to the target block as well
-            setattr(target_block, ref_name, ref)
+            ref_name_list.append((ref, name))
 
             # Add Reference to Port
-            p.add(ref, name)
+            port.add(ref, name)
 
-        return p
+        return port, ref_name_list
 
 
 class StateBlockData(ProcessBlockData):
