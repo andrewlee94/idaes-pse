@@ -22,6 +22,9 @@ from pyomo.common.timing import TicTocTimer
 
 from idaes.models.properties.modular_properties.examples.tests import test_HC_PR
 from idaes.models.unit_models.tests import test_heat_exchanger_1D
+from idaes.models_extra.gas_solid_contactors.unit_models.tests import (
+    test_mb_performance,
+)
 
 
 class TestModel(unittest.TestCase):
@@ -71,4 +74,18 @@ class TestMisc(TestModel):
             test_heat_exchanger_1D.build_model,
             test_heat_exchanger_1D.initialize_model,
             test_heat_exchanger_1D.solve_model,
+        )
+
+    def test_steady_mb_methane_reduction(self):
+        self._run_test(
+            test_mb_performance.build_model,
+            test_mb_performance.initialize_model,
+            test_mb_performance.solve_model,
+        )
+
+    def test_dynamic_mb_methane_reduction(self):
+        self._run_test(
+            test_mb_performance.build_dynamic_model,
+            test_mb_performance.initialize_dynamic_model,
+            test_mb_performance.solve_model,
         )
