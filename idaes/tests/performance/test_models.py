@@ -32,7 +32,7 @@ from idaes.core.solvers import get_solver
 solver = get_solver()
 
 
-class TestModel(object):
+class PerformanceTest(object):
     """
     This class is intended to be a generic template for common performance testing activities.
     It is not intended to be universal however, and test developers should feel free to create their
