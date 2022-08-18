@@ -24,8 +24,10 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.util.check_units import assert_units_consistent
+import pyomo.common.unittest as unittest
 from pyomo.common.unittest import assertStructuredAlmostEqual
 
+from idaes.tests.performance.test_models import TestModel
 from idaes.core import Component
 from idaes.core.util.model_statistics import (
     degrees_of_freedom,
@@ -58,7 +60,8 @@ def _as_quantity(x):
 
 # Test for configuration dictionaries with parameters from Properties of Gases
 # and liquids 4th edition
-class HC_PR_Model:
+@pytest.mark.performance
+class HC_PR_Model(TestModel, unittest.TestCase):
     def build_model():
         model = ConcreteModel()
         model.params = GenericParameterBlock(default=configuration)

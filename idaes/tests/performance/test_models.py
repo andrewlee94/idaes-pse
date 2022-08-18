@@ -22,17 +22,17 @@ from pyomo.common.timing import TicTocTimer
 
 from idaes.core.solvers import get_solver
 
-from idaes.models.properties.modular_properties.examples.tests.test_HC_PR import (
-    HC_PR_Model,
-)
-from idaes.models.unit_models.tests.test_heat_exchanger_1D import HX1D_Model
+#from idaes.models.properties.modular_properties.examples.tests.test_HC_PR import (
+#    HC_PR_Model,
+#)
+#from idaes.models.unit_models.tests.test_heat_exchanger_1D import HX1D_Model
 
 
 # Get default solver for testing
 solver = get_solver()
 
 
-class TestModel(unittest.TestCase):
+class TestModel(object):
     """
     This class is intended to be a generic template for common performance testing activities.
     It is not intended to be universal however, and test developers should feel free to create their
@@ -51,7 +51,7 @@ class TestModel(unittest.TestCase):
         if not tmp is None:
             tmp[name] = value
 
-    def _run_test(self, test_case, consistent_units=True):
+    def _run_test(self, consistent_units=True):
         """
         General method for executing common performance test runs.
 
@@ -60,13 +60,12 @@ class TestModel(unittest.TestCase):
         each of these methods, along with time taken to check unit consistency.
 
         Args:
-            test_case - class containing methods required to construct, initialize and solve test case.
             consistent_units - bool indicating whether unit consistency check should return True (default) or False.
         """
         # Build model and record execution time
         gc.collect()
         timer = TicTocTimer()
-        model = test_case.build_model()
+        model = self.build_model()
         self.recordData("build model", timer.toc("build model"))
 
         # Check unit consistency and record execution time
@@ -90,23 +89,38 @@ class TestModel(unittest.TestCase):
         # Initialize model and record execution time
         gc.collect()
         timer.tic(None)
-        test_case.initialize_model(model)
+        self.initialize_model(model)
         self.recordData("initialize", timer.toc("initialize"))
 
         # Solve model and record execution time
         gc.collect()
         timer.tic(None)
         try:
-            test_case.solve_model(model)
+            self.solve_model(model)
         except AttributeError:
             solver.solve(model)
         self.recordData("final solve", timer.toc("final solve"))
 
+    #
+    # Add methods we expect a derived class to implement
+    #
+    def build_model(self):
+        raise NotImplementedError()
 
-@pytest.mark.performance
-class TestIdaesPerformance(TestModel):
-    def test_hydrocarbon_PR_properties(self):
-        self._run_test(HC_PR_Model)
+    def initialize_model(self, model):
+        raise NotImplementedError()
 
-    def test_heat_exchanger_1D_IAPWS(self):
-        self._run_test(HX1D_Model)
+    def solve_model(self, model):
+        raise NotImplementedError()
+
+    def test_build_initialize_solve(self):
+        self._run_test()
+
+
+#@pytest.mark.performance
+#class TestIdaesPerformance(TestModel):
+#    def test_hydrocarbon_PR_properties(self):
+#        self._run_test(HC_PR_Model)
+#
+#    def test_heat_exchanger_1D_IAPWS(self):
+#        self._run_test(HX1D_Model)

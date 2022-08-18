@@ -25,9 +25,11 @@ from pyomo.environ import (
     units as pyunits,
 )
 from pyomo.common.config import ConfigBlock
+import pyomo.common.unittest as unittest
 from pyomo.util.check_units import assert_units_consistent, assert_units_equivalent
 
 import idaes
+from idaes.tests.performance.test_models import TestModel
 from idaes.core import (
     FlowsheetBlock,
     MaterialBalanceType,
@@ -703,7 +705,8 @@ class TestBTX_countercurrent(object):
 
 
 # -----------------------------------------------------------------------------
-class HX1D_Model:
+@pytest.mark.performance
+class HX1D_Model(TestModel, unittest.TestCase):
     def build_model():
         m = ConcreteModel()
         m.fs = FlowsheetBlock(default={"dynamic": False})
