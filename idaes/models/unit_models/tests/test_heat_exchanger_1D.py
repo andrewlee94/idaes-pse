@@ -757,7 +757,7 @@ class HX1D_Model(PerformanceTest, unittest.TestCase):
 class TestIAPWS_cocurrent(object):
     @pytest.fixture(scope="class")
     def iapws(self):
-        return HX1D_Model.build_model()
+        return HX1D_Model().build_model()
 
     @pytest.mark.unit
     def test_build(self, iapws):

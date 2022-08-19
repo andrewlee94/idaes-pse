@@ -273,7 +273,7 @@ class TestParamBlock(object):
 class TestStateBlock(object):
     @pytest.fixture(scope="class")
     def model(self):
-        return HC_PR_Model.build_model()
+        return HC_PR_Model().build_model()
 
     @pytest.mark.integration
     def test_build(self, model):
@@ -340,7 +340,7 @@ class TestStateBlock(object):
         orig_fixed_vars = fixed_variables_set(model)
         orig_act_consts = activated_constraints_set(model)
 
-        HC_PR_Model.initialize_model(model)
+        HC_PR_Model().initialize_model(model)
 
         assert degrees_of_freedom(model) == 0
 
@@ -357,7 +357,7 @@ class TestStateBlock(object):
 
     @pytest.mark.integration
     def test_solve(self, model):
-        HC_PR_Model.solve_model(model)
+        HC_PR_Model().solve_model(model)
 
     @pytest.mark.integration
     def test_solution(self, model):
