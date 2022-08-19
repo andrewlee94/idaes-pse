@@ -113,6 +113,7 @@ class PerformanceTest(object):
     def solve_model(self, model):
         raise NotImplementedError()
 
+    @pytest.mark.performance
     def test_performance(self):
         self._run_test()
 
