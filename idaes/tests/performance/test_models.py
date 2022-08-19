@@ -113,7 +113,7 @@ class PerformanceTest(object):
     def solve_model(self, model):
         raise NotImplementedError()
 
-    def test_build_initialize_solve(self):
+    def test_performance(self):
         self._run_test()
 
 
