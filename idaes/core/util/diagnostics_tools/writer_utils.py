@@ -45,6 +45,8 @@ MAX_STR_LENGTH = 84
 TAB = " " * 4
 
 
+# TODO: This appears to duplicate much of the functionality in
+# model_statistics.report_statistics
 def collect_model_statistics(model):
     """
     Collects statistics about the model that are relevant for diagnostics tools.

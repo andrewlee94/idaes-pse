@@ -26,6 +26,7 @@ from pyomo.core.expr import identify_variables
 from pyomo.common.collections import ComponentMap, ComponentSet
 from pyomo.common.deprecation import deprecation_warning
 from pyomo.contrib.pynumero.interfaces.external_grey_box import ExternalGreyBoxBlock
+from pyomo.contrib.pynumero.interfaces.external_grey_box_constraint import ExternalGreyBoxConstraint
 
 import idaes.logger as idaeslog
 from idaes.core.scaling import get_scaling_factor
@@ -272,20 +273,26 @@ def number_deactivated_blocks(block):
 
 # -------------------------------------------------------------------------
 # Basic Constraint methods
-def total_constraints_set(block):
+def total_constraints_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all Constraint components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all Constraint components in block
     """
-    return ComponentSet(activated_block_component_generator(block, ctype=Constraint))
+    if include_greybox:
+        ctypes = (Constraint, ExternalGreyBoxConstraint)
+    else:
+        ctypes = (Constraint,)
+    return ComponentSet(activated_block_component_generator(block, ctype=ctypes, include_greybox=include_greybox))
 
 
-def number_total_constraints(block):
+def number_total_constraints(block, include_greybox=True):
     """
     Method to return the total number of Constraint components in a model.
     This will include the number of constraints provided by Greybox models using
@@ -293,108 +300,133 @@ def number_total_constraints(block):
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of Constraint components in block
     """
-    number_standard_constraints = sum(
-        1 for _ in activated_block_component_generator(block, ctype=Constraint)
+    return sum(
+        1 for _ in total_constraints_set(block, include_greybox=include_greybox)
     )
-    number_greybox_constraints = number_activated_greybox_equalities(block)
-    return number_standard_constraints + number_greybox_constraints
 
 
-def activated_constraints_generator(block):
+def activated_constraints_generator(block, include_greybox=True):
     """
     Generator which returns all activated Constraint components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A generator which returns all activated Constraint components block
     """
-    for c in activated_block_component_generator(block, ctype=Constraint):
+    if include_greybox:
+        ctypes = (Constraint, ExternalGreyBoxConstraint)
+    else:
+        ctypes = (Constraint,)
+    for c in activated_block_component_generator(block, ctype=ctypes, include_greybox=include_greybox):
         if c.active:
             yield c
 
 
-def activated_constraints_set(block):
+def activated_constraints_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all activated Constraint components in a
     model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all activated Constraint components in block
     """
-    return ComponentSet(activated_constraints_generator(block))
+    return ComponentSet(activated_constraints_generator(block, include_greybox=include_greybox))
 
 
-def number_activated_constraints(block):
+def number_activated_constraints(block, include_greybox=True):
     """
     Method to return the number of activated Constraint components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of activated Constraint components in block
     """
-    return sum(1 for _ in activated_constraints_generator(block))
+    return sum(1 for _ in activated_constraints_generator(block, include_greybox=include_greybox))
 
 
-def deactivated_constraints_generator(block):
+def deactivated_constraints_generator(block, include_greybox=True):
     """
     Generator which returns all deactivated Constraint components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A generator which returns all deactivated Constraint components block
     """
+    # GreyBox constraints are a special case, as their activity depends on the ExternalGreyBoxBlock
+    # Using activated_block_component_generator will filter these out, so we need to handle them separately
     for c in activated_block_component_generator(block, ctype=Constraint):
         if not c.active:
             yield c
+    
+    if include_greybox:
+        # we could potentially save time by looking only for deactivated greybox blocks here, 
+        # but for robustness we will be thorough
+        for b in _iter_indexed_block_data_objects(
+            block, ctype=ExternalGreyBoxBlock, active=None, descend_into=True
+        ):
+            for c in b.component_data_objects(ctype=ExternalGreyBoxConstraint, active=None, descend_into=False):
+                if not c.active:
+                    yield c
 
 
-def deactivated_constraints_set(block):
+def deactivated_constraints_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all deactivated Constraint components in
     a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all deactivated Constraint components in block
     """
-    return ComponentSet(deactivated_constraints_generator(block))
+    return ComponentSet(deactivated_constraints_generator(block, include_greybox=include_greybox))
 
 
-def number_deactivated_constraints(block):
+def number_deactivated_constraints(block, include_greybox=True):
     """
     Method to return the number of deactivated Constraint components in a
-    model. This will include number of deactivated equalities in a Greybox models
-    using number_deactivated_greybox_equalities function.
+    model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of deactivated Constraint components in block
     """
-    standard_equalities = sum(1 for _ in deactivated_constraints_generator(block))
-    greybox_equalities = number_deactivated_greybox_equalities(block)
-    return standard_equalities + greybox_equalities
+    return sum(1 for _ in deactivated_constraints_generator(block, include_greybox=include_greybox))
 
 
 # -------------------------------------------------------------------------
 # Equality Constraints
-def total_equalities_generator(block):
+def total_equalities_generator(block, include_greybox=True):
     """
     Generator which returns all equality Constraint components in a model.
 
@@ -407,45 +439,57 @@ def total_equalities_generator(block):
     for c in activated_block_component_generator(block, ctype=Constraint):
         if c.upper is not None and c.lower is not None and c.upper == c.lower:
             yield c
+    
+    # GreyBox constraints are a special case, as they are always equalities
+    if include_greybox:
+        for b in _iter_indexed_block_data_objects(
+            block, ctype=ExternalGreyBoxBlock, active=None, descend_into=True
+        ):
+            for c in b.component_data_objects(ctype=ExternalGreyBoxConstraint, active=None, descend_into=False):
+                yield c
 
 
-def total_equalities_set(block):
+def total_equalities_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all equality Constraint components in a
     model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all equality Constraint components in block
     """
-    return ComponentSet(total_equalities_generator(block))
+    return ComponentSet(total_equalities_generator(block, include_greybox=include_greybox))
 
 
-def number_total_equalities(block):
+def number_total_equalities(block, include_greybox=True):
     """
     Method to return the total number of equality Constraint components in a
-    model. This will include the number of activated equalities Greybox using the number_activated_greybox_equalities function.
+    model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of equality Constraint components in block
     """
-    standard_equalities = sum(1 for _ in total_equalities_generator(block))
-    greybox_equalities = number_activated_greybox_equalities(block)
-    return standard_equalities + greybox_equalities
+    return sum(1 for _ in total_equalities_generator(block, include_greybox=include_greybox))
 
 
-def activated_equalities_generator(block):
+def activated_equalities_generator(block, include_greybox=True):
     """
     Generator which returns all activated equality Constraint components in a
     model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A generator which returns all activated equality Constraint components
@@ -460,47 +504,54 @@ def activated_equalities_generator(block):
             and value(c.upper) == value(c.lower)
         ):
             yield c
+    
+    # GreyBox constraints are a special case, as they are always equalities
+    if include_greybox:
+        for b in _iter_indexed_block_data_objects(
+            block, ctype=ExternalGreyBoxBlock, active=True, descend_into=True
+        ):
+            for c in b.component_data_objects(ctype=ExternalGreyBoxConstraint, active=True, descend_into=False):
+                yield c
 
 
-def activated_equalities_set(block):
+def activated_equalities_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all activated equality Constraint
     components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all activated equality Constraint components
         in block
     """
-    return ComponentSet(activated_equalities_generator(block))
+    return ComponentSet(activated_equalities_generator(block, include_greybox=include_greybox))
 
 
-def number_activated_equalities(block):
+def number_activated_equalities(block, include_greybox=True):
     """
     Method to return the number of activated equality Constraint components in
-    a model. This will include number of equalities in Greybox model using number_activated_greybox_equalities function.
+    a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of activated equality Constraint components in block
     """
     return sum(
-        1 for _ in activated_equalities_generator(block)
-    ) + number_activated_greybox_equalities(block)
+        1 for _ in activated_equalities_generator(block, include_greybox=include_greybox)
+    )
 
 
 def number_activated_greybox_equalities(block) -> int:
     """
     Function to compute total number of equality constraints for all GreyBox objects in this block.
-
-    A GreyBox model is always assumed to be 0DOFs where each output[i]==f(inputs)
-    where f is GreyBox model, this should be true regardless if
-    GreyBox model is doing internal optimization or not, as every output
-    is calculated through the GreyBox internal model using provided inputs.
 
     Args:
         block : pyomo concrete model or pyomo block
@@ -510,19 +561,14 @@ def number_activated_greybox_equalities(block) -> int:
     """
     equalities = 0
     for grey_box in activated_greybox_block_set(block):
-        equalities += len(grey_box.outputs)
-        equalities += grey_box.get_external_model().n_equality_constraints()
+        for _ in grey_box.component_data_objects(ctype=ExternalGreyBoxConstraint, active=None, descend_into=False):
+            equalities += 1
     return equalities
 
 
 def number_deactivated_greybox_equalities(block) -> int:
     """
     Function to compute total number of equality constraints for all GreyBox objects in this block.
-
-    A GreyBox model is always assumed to be 0DOFs where each output[i]==f(inputs)
-    where f is GreyBox model, this should be true regardless if
-    GreyBox model is doing internal optimization or not, as every output
-    is calculated through a the GreyBox internal model using provided inputs.
 
     Args:
         block : pyomo concrete model or pyomo block
@@ -532,57 +578,61 @@ def number_deactivated_greybox_equalities(block) -> int:
     """
     equalities = 0
     for grey_box in deactivated_greybox_block_set(block):
-        equalities += len(grey_box.outputs)
-        equalities += grey_box.get_external_model().n_equality_constraints()
+        for _ in grey_box.component_data_objects(ctype=ExternalGreyBoxConstraint, active=None, descend_into=False):
+            equalities += 1
     return equalities
 
 
-def deactivated_equalities_generator(block):
+def deactivated_equalities_generator(block, include_greybox=True):
     """
     Generator which returns all deactivated equality Constraint components in a
     model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A generator which returns all deactivated equality Constraint
         components block
     """
-    for c in total_equalities_generator(block):
+    for c in total_equalities_generator(block, include_greybox=include_greybox):
         if not c.active:
             yield c
 
 
-def deactivated_equalities_set(block):
+def deactivated_equalities_set(block, include_greybox=True):
     """
     Method to return a ComponentSet of all deactivated equality Constraint
     components in a model.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         A ComponentSet including all deactivated equality Constraint components
         in block
     """
-    return ComponentSet(deactivated_equalities_generator(block))
+    return ComponentSet(deactivated_equalities_generator(block, include_greybox=include_greybox))
 
 
-def number_deactivated_equalities(block):
+def number_deactivated_equalities(block, include_greybox=True):
     """
     Method to return the number of deactivated equality Constraint components
     in a model. This will include the number of deactivated equality constraints in Greybox models.
 
     Args:
         block : model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+        models (default = True)
 
     Returns:
         Number of deactivated equality Constraint components in block
     """
-    standard_equalities = sum(1 for _ in deactivated_equalities_generator(block))
-    greybox_equalities = number_deactivated_greybox_equalities(block)
-    return standard_equalities + greybox_equalities
+    return sum(1 for _ in deactivated_equalities_generator(block, include_greybox=include_greybox))
 
 
 # -------------------------------------------------------------------------
@@ -1851,7 +1901,7 @@ def report_statistics(block, ostream=None):
 
 # -------------------------------------------------------------------------
 # Common sub-methods
-def activated_block_component_generator(block, ctype):
+def activated_block_component_generator(block, ctype, include_greybox=False):
     """
     Generator which returns all the components of a given ctype which exist in
     activated Blocks within a model.
@@ -1859,6 +1909,7 @@ def activated_block_component_generator(block, ctype):
     Args:
         block : model to be studied
         ctype : type of Pyomo component to be returned by generator.
+        include_greybox : whether to include greybox components
 
     Returns:
         A generator which returns all components of ctype which appear in
@@ -1876,3 +1927,11 @@ def activated_block_component_generator(block, ctype):
     ):
         for c in b.component_data_objects(ctype=ctype, active=None, descend_into=False):
             yield c
+
+    # If inlcude_greybox is True, also yield components in active greybox sub-blocks
+    if include_greybox:
+        for b in _iter_indexed_block_data_objects(
+            block, ctype=ExternalGreyBoxBlock, active=True, descend_into=True
+        ):
+            for c in b.component_data_objects(ctype=ctype, active=None, descend_into=False):
+                yield c
