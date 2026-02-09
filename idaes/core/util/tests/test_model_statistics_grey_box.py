@@ -50,7 +50,8 @@ def model():
     m.b1.link_P2 = pyo.Constraint(expr=m.b1.P2 == m.b1.egb.outputs['P2'])
     m.b1.link_Pout = pyo.Constraint(expr=m.b1.Pout == m.b1.egb.outputs['Pout'])
 
-    # Add a second, unrelated Block to ensure that the model statistics functions are correctly
+    # Add a second, unrelated Block to ensure that the model statistics
+    # functions are correctly identifying blocks and constraints in the presence of multiple blocks
     m.b2 = pyo.Block()
     m.b2.v1 = pyo.Var()
     m.b2.c1 = pyo.Constraint(expr=m.b2.v1 == 1)
@@ -59,8 +60,10 @@ def model():
     m.b1.ineq = pyo.Constraint(expr=m.b1.Pin >= 0)
     m.b2.ineq = pyo.Constraint(expr=m.b2.v1 >= 0)
 
-    # Set some values and bounds in the grey box to confirm that grey box variables are included in the variable counts
-    # Include both inputs and outputs to confirm that both are included in the variable counts
+    # Set some values and bounds in the grey box to confirm that grey box
+    # variables are included in the variable counts
+    # Include both inputs and outputs to confirm that both are included
+    # in the variable counts
     m.b1.egb.inputs['Pin'].set_value(101325)
     m.b1.egb.inputs['Pin'].setlb(0)
     m.b1.egb.inputs['Pin'].setub(1e8)
@@ -77,7 +80,8 @@ def model():
 class TestBlockStatisticsGreyBox:
     @pytest.mark.unit
     def test_total_blocks_set_w_grey_box(self, model):
-        # Test that the total_blocks_set function correctly counts the number of blocks in the model
+        # Test that the total_blocks_set function correctly counts
+        # the number of blocks in the model
         # Grey Box is not included as a normal block
         assert len(total_blocks_set(model)) == 3
         for b in total_blocks_set(model):
@@ -89,7 +93,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_activated_blocks_set_w_grey_box(self, model):
-        # Test that the activated_blocks_set function correctly counts the number of activated blocks in the model
+        # Test that the activated_blocks_set function correctly counts
+        # the number of activated blocks in the model
         # Grey Box is not included as a normal block
         assert len(activated_blocks_set(model)) == 3
         for b in activated_blocks_set(model):
@@ -103,14 +108,16 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_greybox_block_set_w_grey_box(self, model):
-        # Test that the grey_box_set function correctly identifies the Grey Box block in the model
+        # Test that the grey_box_set function correctly identifies
+        # the Grey Box block in the model
         gbs = greybox_block_set(model)
         assert len(gbs) == 1
         assert model.b1.egb in gbs
 
     @pytest.mark.unit
     def test_activated_greybox_block_set_w_grey_box(self, model):
-        # Test that the activated_greybox_block_set function correctly identifies the activated Grey Box block in the model
+        # Test that the activated_greybox_block_set function correctly identifies
+        # the activated Grey Box block in the model
         agbs = activated_greybox_block_set(model)
         assert len(agbs) == 1
         assert model.b1.egb in agbs
@@ -122,7 +129,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_deactivated_greybox_block_set_w_grey_box(self, model):
-        # Test that the deactivated_greybox_block_set function correctly identifies the deactivated Grey Box block in the model
+        # Test that the deactivated_greybox_block_set function correctly identifies
+        # the deactivated Grey Box block in the model
         dgb = deactivated_greybox_block_set(model)
         assert len(dgb) == 0
 
@@ -134,7 +142,8 @@ class TestBlockStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_deactivated_greybox_block_w_grey_box(self, model):
-        # Test that the number_deactivated_greybox_block function correctly counts the number of deactivated Grey Box blocks in the model
+        # Test that the number_deactivated_greybox_block function correctly counts
+        # the number of deactivated Grey Box blocks in the model
         assert number_deactivated_greybox_block(model) == 0
 
         # Deactivate the grey box and test again
@@ -143,7 +152,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_greybox_blocks_w_grey_box(self, model):
-        # Test that the number_greybox_blocks function correctly counts the number of Grey Box blocks in the model
+        # Test that the number_greybox_blocks function correctly counts
+        # the number of Grey Box blocks in the model
         assert number_greybox_blocks(model) == 1
 
         # Deactivate the grey box and test again (should not change the count)
@@ -152,7 +162,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_activated_greybox_blocks_w_grey_box(self, model):
-        # Test that the number_activated_greybox_blocks function correctly counts the number of activated Grey Box blocks in the model
+        # Test that the number_activated_greybox_blocks function correctly counts
+        # the number of activated Grey Box blocks in the model
         assert number_activated_greybox_blocks(model) == 1
 
         # Deactivate the grey box and test again
@@ -161,7 +172,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_activated_blocks_w_grey_box(self, model):
-        # Test that the number_activated_blocks function correctly counts the number of activated blocks in the model
+        # Test that the number_activated_blocks function correctly counts
+        # the number of activated blocks in the model
         assert number_activated_blocks(model) == 3
 
         # Deactivate b2 and test again
@@ -170,7 +182,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_deactivated_blocks_set_w_grey_box(self, model):
-        # Test that the deactivated_blocks_set function correctly identifies the deactivated blocks in the model
+        # Test that the deactivated_blocks_set function correctly identifies
+        # the deactivated blocks in the model
         dbs = deactivated_blocks_set(model)
         assert len(dbs) == 0
 
@@ -182,7 +195,8 @@ class TestBlockStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_deactivated_blocks_w_grey_box(self, model):
-        # Test that the number_deactivated_blocks function correctly counts the number of deactivated blocks in the model
+        # Test that the number_deactivated_blocks function correctly counts the
+        # number of deactivated blocks in the model
         assert number_deactivated_blocks(model) == 0
 
         # Deactivate b2 and test again
@@ -193,7 +207,8 @@ class TestBlockStatisticsGreyBox:
 class TestConstraintStatisticsGreyBox:
     @pytest.mark.unit
     def test_total_constraints_set_w_grey_box(self, model):
-        # Test that the total_constraints_set function correctly counts the number of constraints in the model
+        # Test that the total_constraints_set function correctly counts the
+        # number of constraints in the model
         # First, test with include_greybox = False
         tcs = total_constraints_set(model, include_greybox=False)
         assert len(tcs) == 10
@@ -234,7 +249,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_total_constraints_w_grey_box(self, model):
-        # Test that the number_total_constraints function correctly counts the number of constraints in the model
+        # Test that the number_total_constraints function correctly counts the
+        # number of constraints in the model
         # First, test with include_greybox = False
         assert number_total_constraints(model, include_greybox=False) == 10
 
@@ -243,7 +259,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_activated_constraints_generator_w_grey_box(self, model):
-        # Test that the activated_constraints_generator function correctly identifies the activated constraints in the model
+        # Test that the activated_constraints_generator function correctly identifies
+        # the activated constraints in the model
         # First, test with include_greybox = False
         acg = activated_constraints_generator(model, include_greybox=False)
         acg_list = list(acg)
@@ -284,7 +301,8 @@ class TestConstraintStatisticsGreyBox:
                 model.b2.ineq,
             ]
         
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         acg = activated_constraints_generator(model, include_greybox=True)
         acg_list = list(acg)
@@ -305,7 +323,8 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_activated_constraints_set_w_grey_box(self, model):
-        # Test that the activated_constraints_set function correctly identifies the activated constraints in the model
+        # Test that the activated_constraints_set function correctly identifies
+        # the activated constraints in the model
         # First, test with include_greybox = False
         acs = activated_constraints_set(model, include_greybox=False)
         assert len(acs) == 10
@@ -344,7 +363,8 @@ class TestConstraintStatisticsGreyBox:
                 model.b2.ineq,
             ]
         
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         acs = activated_constraints_set(model, include_greybox=True)
         assert len(acs) == 10
@@ -364,20 +384,23 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_activated_constraints_w_grey_box(self, model):
-        # Test that the number_activated_constraints function correctly counts the number of activated constraints in the model
+        # Test that the number_activated_constraints function correctly counts the number
+        # of activated constraints in the model
         # First, test with include_greybox = False
         assert number_activated_constraints(model, include_greybox=False) == 10
 
         # Next, test with include_greybox = True
         assert number_activated_constraints(model, include_greybox=True) == 14
 
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         assert number_activated_constraints(model, include_greybox=True) == 10
 
     @pytest.mark.unit
     def test_deactivated_constraints_generator_w_grey_box(self, model):
-        # Test that the deactivated_constraints_generator function correctly identifies the deactivated constraints in the model
+        # Test that the deactivated_constraints_generator function correctly identifies
+        # the deactivated constraints in the model
         # First, test with include_greybox = False
         dcg = deactivated_constraints_generator(model, include_greybox=False)
         dcg_list = list(dcg)
@@ -388,7 +411,8 @@ class TestConstraintStatisticsGreyBox:
         dcg_list = list(dcg)
         assert len(dcg_list) == 0
         
-        # Now deactivate the grey box and test again with include_greybox = True (should include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should include grey box constraints)
         model.b1.egb.deactivate()
         dcg = deactivated_constraints_generator(model, include_greybox=True)
         dcg_list = list(dcg)
@@ -403,7 +427,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_deactivated_constraints_set_w_grey_box(self, model):
-        # Test that the deactivated_constraints_set function correctly identifies the deactivated constraints in the model
+        # Test that the deactivated_constraints_set function correctly identifies
+        # the deactivated constraints in the model
         # First, test with include_greybox = False
         dcs = deactivated_constraints_set(model, include_greybox=False)
         assert len(dcs) == 0
@@ -412,7 +437,8 @@ class TestConstraintStatisticsGreyBox:
         dcs = deactivated_constraints_set(model, include_greybox=True)
         assert len(dcs) == 0
         
-        # Now deactivate the grey box and test again with include_greybox = True (should include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should include grey box constraints)
         model.b1.egb.deactivate()
         dcs = deactivated_constraints_set(model, include_greybox=True)
         assert len(dcs) == 4
@@ -426,20 +452,23 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_deactivated_constraints_w_grey_box(self, model):
-        # Test that the number_deactivated_constraints function correctly counts the number of deactivated constraints in the model
+        # Test that the number_deactivated_constraints function correctly counts
+        # the number of deactivated constraints in the model
         # First, test with include_greybox = False
         assert number_deactivated_constraints(model, include_greybox=False) == 0
 
         # Next, test with include_greybox = True
         assert number_deactivated_constraints(model, include_greybox=True) == 0
 
-        # Now deactivate the grey box and test again with include_greybox = True (should include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should include grey box constraints)
         model.b1.egb.deactivate()
         assert number_deactivated_constraints(model, include_greybox=True) == 4
 
     @pytest.mark.unit
     def test_total_equalities_generator_w_grey_box(self, model):
-        # Test that the total_equalities_generator function correctly identifies the equality constraints in the model
+        # Test that the total_equalities_generator function correctly identifies
+        # the equality constraints in the model
         # First, test with include_greybox = False
         teg = total_equalities_generator(model, include_greybox=False)
         teg_list = list(teg)
@@ -478,7 +507,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_total_equalities_set_w_grey_box(self, model):
-        # Test that the total_equalities_set function correctly identifies the equality constraints in the model
+        # Test that the total_equalities_set function correctly identifies the
+        # equality constraints in the model
         # First, test with include_greybox = False
         tes = total_equalities_set(model, include_greybox=False)
         assert len(tes) == 8
@@ -536,7 +566,8 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_total_equalities_w_grey_box(self, model):
-        # Test that the number_total_equalities function correctly counts the number of equality constraints in the model
+        # Test that the number_total_equalities function correctly counts the number of
+        # equality constraints in the model
         # First, test with include_greybox = False
         assert number_total_equalities(model, include_greybox=False) == 8
 
@@ -550,7 +581,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_activated_equalities_generator_w_grey_box(self, model):
-        # Test that the activated_equalities_generator function correctly identifies the activated equality constraints in the model
+        # Test that the activated_equalities_generator function correctly identifies
+        # the activated equality constraints in the model
         # First, test with include_greybox = False
         aeg = activated_equalities_generator(model, include_greybox=False)
         aeg_list = list(aeg)
@@ -587,7 +619,8 @@ class TestConstraintStatisticsGreyBox:
                 model.b1.egb.pdrop3,
             ]
         
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         aeg = activated_equalities_generator(model, include_greybox=True)
         aeg_list = list(aeg)
@@ -606,7 +639,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_activated_equalities_set_w_grey_box(self, model):
-        # Test that the activated_equalities_set function correctly identifies the activated equality constraints in the model
+        # Test that the activated_equalities_set function correctly identifies
+        # the activated equality constraints in the model
         # First, test with include_greybox = False
         aes = activated_equalities_set(model, include_greybox=False)
         assert len(aes) == 8
@@ -641,7 +675,8 @@ class TestConstraintStatisticsGreyBox:
                 model.b1.egb.pdrop3,
             ]
         
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         aes = activated_equalities_set(model, include_greybox=True)
         assert len(aes) == 8
@@ -659,20 +694,23 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_activated_equalities_w_grey_box(self, model):
-        # Test that the number_activated_equalities function correctly counts the number of activated equality constraints in the model
+        # Test that the number_activated_equalities function correctly counts the
+        # number of activated equality constraints in the model
         # First, test with include_greybox = False
         assert number_activated_equalities(model, include_greybox=False) == 8
 
         # Next, test with include_greybox = True
         assert number_activated_equalities(model, include_greybox=True) == 12
 
-        # Now deactivate the grey box and test again with include_greybox = True (should not include grey box constraints)
+        # Now deactivate the grey box and test again with include_greybox = True
+        # (should not include grey box constraints)
         model.b1.egb.deactivate()
         assert number_activated_equalities(model, include_greybox=True) == 8
 
     @pytest.mark.unit
     def test_number_activated_greybox_equalities_w_grey_box(self, model):
-        # Test that the number_activated_greybox_equalities function correctly counts the number of activated equality constraints in the Grey Box blocks in the model
+        # Test that the number_activated_greybox_equalities function correctly counts
+        # the number of activated equality constraints in the Grey Box blocks in the model
         assert number_activated_greybox_equalities(model) == 4
 
         # Now deactivate the grey box and test again (should be 0)
@@ -681,7 +719,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_number_deactivated_equalities_w_grey_box(self, model):
-        # Test that the number_deactivated_equalities function correctly counts the number of deactivated equality constraints in the Grey Box blocks in the model
+        # Test that the number_deactivated_equalities function correctly counts
+        # the number of deactivated equality constraints in the Grey Box blocks in the model
         assert number_deactivated_greybox_equalities(model) == 0
 
         # Now deactivate the grey box and test again (should be 4)
@@ -690,7 +729,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_deactivated_equalities_generator_w_grey_box(self, model):
-        # Test that the deactivated_equalities_generator function correctly identifies the deactivated equality constraints in the Grey Box blocks in the model
+        # Test that the deactivated_equalities_generator function correctly
+        # identifies the deactivated equality constraints in the Grey Box blocks in the model
         deg = deactivated_equalities_generator(model, include_greybox=True)
         deg_list = list(deg)
         assert len(deg_list) == 0
@@ -710,7 +750,8 @@ class TestConstraintStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_deactivated_equalities_set_w_grey_box(self, model):
-        # Test that the deactivated_equalities_set function correctly identifies the deactivated equality constraints in the Grey Box blocks in the model
+        # Test that the deactivated_equalities_set function correctly identifies
+        # the deactivated equality constraints in the Grey Box blocks in the model
         decs = deactivated_equalities_set(model, include_greybox=True)
         assert len(decs) == 0
         
@@ -728,7 +769,8 @@ class TestConstraintStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_deactivated_greybox_equalities_w_grey_box(self, model):
-        # Test that the number_deactivated_greybox_equalities function correctly counts the number of deactivated equality constraints in the Grey Box blocks in the model
+        # Test that the number_deactivated_greybox_equalities function correctly
+        # counts the number of deactivated equality constraints in the Grey Box blocks in the model
         assert number_deactivated_greybox_equalities(model) == 0
 
         # Now deactivate the grey box and test again (should be 4)
@@ -812,7 +854,8 @@ class TestConstraintStatisticsGreyBox:
 class TestVariableStatisticsGreyBox:
     @pytest.mark.unit
     def test_variables_generator_w_grey_box(self, model):
-        # Start with include_greybox = False to confirm that we are not including grey box variables
+        # Start with include_greybox = False to confirm that we are not
+        # including grey box variables
         vg = variables_generator(model, include_greybox=False)
         vg_list = list(vg)
         assert len(vg_list) == 8
@@ -828,7 +871,8 @@ class TestVariableStatisticsGreyBox:
                 "b2.v1",
             ]
         
-        # Now test with include_greybox = True to confirm that we are including grey box variables
+        # Now test with include_greybox = True to confirm that we are
+        # including grey box variables
         vg = variables_generator(model, include_greybox=True)
         vg_list = list(vg)
         assert len(vg_list) == 15
@@ -854,7 +898,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_variables_set_w_grey_box(self, model):
-        # Start with include_greybox = False to confirm that we are not including grey box variables
+        # Start with include_greybox = False to confirm that we are not
+        # including grey box variables
         vs = variables_set(model, include_greybox=False)
         assert len(vs) == 8
         for v in vs:
@@ -869,7 +914,8 @@ class TestVariableStatisticsGreyBox:
                 "b2.v1",
             ]
         
-        # Now test with include_greybox = True to confirm that we are including grey box variables
+        # Now test with include_greybox = True to confirm that we are
+        # including grey box variables
         vs = variables_set(model, include_greybox=True)
         assert len(vs) == 15
         for v in vs:
@@ -893,15 +939,18 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_variables_w_grey_box(self, model):
-        # Start with include_greybox = False to confirm that we are not including grey box variables
+        # Start with include_greybox = False to confirm that we are not
+        # including grey box variables
         assert number_variables(model, include_greybox=False) == 8
 
-        # Now test with include_greybox = True to confirm that we are including grey box variables
+        # Now test with include_greybox = True to confirm that we are
+        # including grey box variables
         assert number_variables(model, include_greybox=True) == 15
     
     @pytest.mark.unit
     def test_fixed_variables_generator(self, model):
-        # Test that the fixed_variables_generator function correctly identifies the fixed variables in the model
+        # Test that the fixed_variables_generator function correctly
+        # identifies the fixed variables in the model
         fvg = fixed_variables_generator(model)
         fvg_list = list(fvg)
         assert len(fvg_list) == 0
@@ -924,7 +973,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_fixed_variables_set(self, model):
-        # Test that the fixed_variables_set function correctly identifies the fixed variables in the model
+        # Test that the fixed_variables_set function correctly identifies
+        # the fixed variables in the model
         fvs = fixed_variables_set(model)
         assert len(fvs) == 0
 
@@ -936,7 +986,8 @@ class TestVariableStatisticsGreyBox:
         for v in fvs:
             assert v.name in ["b1.Pin", "b1.egb.inputs[Pin]"]
         
-        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        # Test again with include_greybox = False to confirm that we are
+        # not including grey box variables
         fvs = fixed_variables_set(model, include_greybox=False)
         assert len(fvs) == 1
         for v in fvs:
@@ -944,7 +995,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_fixed_variables(self, model):
-        # Test that the number_fixed_variables function correctly counts the number of fixed variables in the model
+        # Test that the number_fixed_variables function correctly counts
+        # the number of fixed variables in the model
         assert number_fixed_variables(model) == 0
 
         # Fix some of the variables and test again
@@ -952,12 +1004,14 @@ class TestVariableStatisticsGreyBox:
         model.b1.egb.inputs["Pin"].fix(1)
         assert number_fixed_variables(model) == 2
 
-        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        # Test again with include_greybox = False to confirm that we are
+        # not including grey box variables
         assert number_fixed_variables(model, include_greybox=False) == 1
     
     @pytest.mark.unit
     def test_unfixed_variables_generator(self, model):
-        # Test that the unfixed_variables_generator function correctly identifies the unfixed variables in the model
+        # Test that the unfixed_variables_generator function correctly
+        # identifies the unfixed variables in the model
         uv = unfixed_variables_generator(model)
         uv_list = list(uv)
         assert len(uv_list) == 15
@@ -1003,7 +1057,8 @@ class TestVariableStatisticsGreyBox:
                 "b1.egb.outputs[Pout]",
             ]
         
-        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        # Test again with include_greybox = False to confirm that we are
+        # not including grey box variables
         uv = unfixed_variables_generator(model, include_greybox=False)
         uv_list = list(uv)
         assert len(uv_list) == 7
@@ -1020,7 +1075,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_unfixed_variables_set(self, model):
-        # Test that the unfixed_variables_set function correctly identifies the unfixed variables in the model
+        # Test that the unfixed_variables_set function correctly identifies
+        # the unfixed variables in the model
         uvs = unfixed_variables_set(model)
         assert len(uvs) == 15
         for v in uvs:
@@ -1064,7 +1120,8 @@ class TestVariableStatisticsGreyBox:
                 "b1.egb.outputs[Pout]",
             ]
         
-        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        # Test again with include_greybox = False to confirm that we are
+        # not including grey box variables
         uvs = unfixed_variables_set(model, include_greybox=False)
         assert len(uvs) == 7
         for v in uvs:
@@ -1080,7 +1137,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_unfixed_variables(self, model):
-        # Test that the number_unfixed_variables function correctly counts the number of unfixed variables in the model
+        # Test that the number_unfixed_variables function correctly counts the
+        # number of unfixed variables in the model
         assert number_unfixed_variables(model) == 15
 
         # Now fix some of the variables and test again
@@ -1088,19 +1146,22 @@ class TestVariableStatisticsGreyBox:
         model.b1.egb.inputs["Pin"].fix(1)
         assert number_unfixed_variables(model) == 13
 
-        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        # Test again with include_greybox = False to confirm that we are not
+        # including grey box variables
         assert number_unfixed_variables(model, include_greybox=False) == 7
     
     @pytest.mark.unit
     def test_variables_near_bounds_generator(self, model):
-        # Test that the variables_near_bounds_generator function correctly identifies the variables that are near their bounds in the model
+        # Test that the variables_near_bounds_generator function correctly identifies
+        # the variables that are near their bounds in the model
         vnbg = variables_near_bounds_generator(model, tol=1e-6)
         vnbg_list = list(vnbg)
         assert len(vnbg_list) == 3
         for v in vnbg_list:
             assert v.name in ["b1.c", "b1.egb.inputs[c]", "b1.egb.outputs[P2]"]
         
-        # Now test with include_greybox = False to confirm that we are not including grey box variables
+        # Now test with include_greybox = False to confirm that we are not
+        # including grey box variables
         vnbg = variables_near_bounds_generator(model, tol=1e-6, include_greybox=False)
         vnbg_list = list(vnbg)
         assert len(vnbg_list) == 1
@@ -1109,7 +1170,8 @@ class TestVariableStatisticsGreyBox:
 
     @pytest.mark.unit
     def test_variables_near_bounds_set(self, model):
-        # Test that the variables_near_bounds_set function correctly identifies the variables that are near their bounds in the model
+        # Test that the variables_near_bounds_set function correctly identifies the
+        # variables that are near their bounds in the model
         vnbs = variables_near_bounds_set(model, tol=1e-6)
         assert len(vnbs) == 3
         for v in vnbs:
@@ -1123,7 +1185,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_variables_near_bounds(self, model):
-        # Test that the number_variables_near_bounds function correctly counts the number of variables that are near their bounds in the model
+        # Test that the number_variables_near_bounds function correctly counts the
+        # number of variables that are near their bounds in the model
         assert number_variables_near_bounds(model, tol=1e-6) == 3
 
         # Now test with include_greybox = False to confirm that we are not including grey box variables
@@ -1131,7 +1194,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_variables_in_activated_constraints_set_w_grey_box(self, model):
-        # Test that the variables_in_activated_constraints_set function correctly identifies the variables that are in the activated constraints in the model
+        # Test that the variables_in_activated_constraints_set function correctly
+        # identifies the variables that are in the activated constraints in the model
         # First, test with include_greybox = False
         # We should see all the variables, including those in the grey box, as they appear
         # in the linking constraints.
@@ -1229,7 +1293,8 @@ class TestVariableStatisticsGreyBox:
     
     @pytest.mark.unit
     def test_number_variables_in_activated_constraints_w_grey_box(self, model):
-        # Test that the number_variables_in_activated_constraints function correctly counts the number of variables that are in the activated constraints in the model
+        # Test that the number_variables_in_activated_constraints function correctly counts
+        # the number of variables that are in the activated constraints in the model
         # First, test with include_greybox = False
         assert number_variables_in_activated_constraints(model, include_greybox=False) == 15
 
@@ -1244,3 +1309,366 @@ class TestVariableStatisticsGreyBox:
         # Finally, turn the grey box back on - should go back to 15
         model.b1.egb.activate()
         assert number_variables_in_activated_constraints(model, include_greybox=True) == 15
+    
+    @pytest.mark.unit
+    def test_variables_not_in_activated_constraints_set_w_grey_box(self, model):
+        # Test that the variables_not_in_activated_constraints_set function correctly identifies
+        # the variables that are not in the activated constraints in the model
+        # First, test with include_greybox = False
+        vniacs = variables_not_in_activated_constraints_set(model, include_greybox=False)
+        assert len(vniacs) == 0
+
+        # Next, deactivate the grey box - result should still be the same as all vars appear
+        # in active linking constraints
+        model.b1.egb.deactivate()
+        vniacs = variables_not_in_activated_constraints_set(model, include_greybox=True)
+        assert len(vniacs) == 0
+
+        # Now, turn off a linking constraint - should see the Pin variable from the grey box as not
+        # being in an active constraint
+        model.b1.link_Pin.deactivate()
+        vniacs = variables_not_in_activated_constraints_set(model, include_greybox=True)
+
+        assert len(vniacs) == 1
+        for v in vniacs:
+            assert v.name in ["b1.egb.inputs[Pin]"]
+
+        # Finally, turn the grey box back on - should go back to 0
+        model.b1.egb.activate()
+        vniacs = variables_not_in_activated_constraints_set(model, include_greybox=True)
+        assert len(vniacs) == 0
+
+    @pytest.mark.unit
+    def test_number_variables_not_in_activated_constraints_w_grey_box(self, model):
+        # Test that the number_variables_not_in_activated_constraints function correctly counts
+        # the number of variables that are not in the activated constraints in the model
+        # First, test with include_greybox = False
+        assert number_variables_not_in_activated_constraints(model, include_greybox=False) == 0
+
+        # Next, deactivate the grey box - result should still be the same
+        model.b1.egb.deactivate()
+        assert number_variables_not_in_activated_constraints(model, include_greybox=True) == 0
+
+        # Now, turn off a linking constraint - should see the Pin variable from the grey box as not
+        # being in an active constraint
+        model.b1.link_Pin.deactivate()
+        assert number_variables_not_in_activated_constraints(model, include_greybox=True) == 1
+
+        # Finally, turn the grey box back on - should go back to 0
+        model.b1.egb.activate()
+        assert number_variables_not_in_activated_constraints(model, include_greybox=True) == 0
+
+    @pytest.mark.unit
+    def test_variables_in_activated_equalities_set_w_grey_box(self, model):
+        # Test that the variables_in_activated_equalities_set function correctly identifies
+        # the variables that are in the activated equality constraints in the model
+        # First, test with include_greybox = False
+        # We should see all the variables, including those in the grey box, as they appear
+        # in the linking constraints.
+        vies = variables_in_activated_equalities_set(model, include_greybox=False)
+        assert len(vies) == 15
+        for v in vies:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Next, deactivate the grey box - result should still be the same
+        model.b1.egb.deactivate()
+        vies = variables_in_activated_equalities_set(model, include_greybox=True)
+        assert len(vies) == 15
+        for v in vies:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Now, turn off a linking constraint
+        model.b1.link_Pin.deactivate()
+        vies = variables_in_activated_equalities_set(model, include_greybox=True)
+        assert len(vies) == 13
+        for v in vies:
+            assert v.name in [
+                # "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                # "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+
+        # Finally, turn the grey box back on
+        # GreyBox variables should be back, but b1.Pin should still be out as the linking constraint
+        # is still deactivated
+        model.b1.egb.activate()
+        vies = variables_in_activated_equalities_set(model, include_greybox=True)
+        assert len(vies) == 14
+        for v in vies:
+            assert v.name in [
+                # "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+    
+    @pytest.mark.unit
+    def test_number_variables_in_activated_equalities_w_grey_box(self, model):
+        # Test that the number_variables_in_activated_equalities function correctly counts
+        # the number of variables that are in the activated equality constraints in the model
+        # First, test with include_greybox = False
+        assert number_variables_in_activated_equalities(model, include_greybox=False) == 15
+
+        # Next, deactivate the grey box - result should still be the same
+        model.b1.egb.deactivate()
+        assert number_variables_in_activated_equalities(model, include_greybox=True) == 15
+
+        # Now, turn off a linking constraint
+        model.b1.link_Pin.deactivate()
+        assert number_variables_in_activated_equalities(model, include_greybox=True) == 13
+
+        # Finally, turn the grey box back on - should go back to 14 as only b1.Pin is out
+        model.b1.egb.activate()
+        assert number_variables_in_activated_equalities(model, include_greybox=True) == 14
+    
+    @pytest.mark.unit
+    def test_variables_in_activated_inequalities_set_w_grey_box(self, model):
+        # Test that the variables_in_activated_inequalities_set function correctly identifies
+        # the variables that are in the activated inequality constraints in the model
+        vies = variables_in_activated_inequalities_set(model)
+        assert len(vies) == 2
+        for v in vies:
+            assert v.name in ["b1.Pin", "b2.v1"]
+    
+    @pytest.mark.unit
+    def test_number_variables_in_activated_inequalities_w_grey_box(self, model):
+        # Test that the number_variables_in_activated_inequalities function correctly counts
+        # the number of variables that are in the activated inequality constraints in the model
+        assert number_variables_in_activated_inequalities(model) == 2
+    
+    @pytest.mark.unit
+    def test_variables_only_in_inequalities_w_grey_box(self, model):
+        # Test that the variables_only_in_inequalities function correctly identifies
+        # the variables that are only in the inequality constraints in the model
+        vois = variables_only_in_inequalities(model)
+        assert len(vois) == 0
+
+    @pytest.mark.unit
+    def test_number_variables_only_in_inequalities_w_grey_box(self, model):
+        # Test that the number_variables_only_in_inequalities function correctly counts
+        # the number of variables that are only in the inequality constraints in the model
+        assert number_variables_only_in_inequalities(model) == 0
+    
+    @pytest.mark.unit
+    def test_fixed_variables_in_activated_equalities_set_w_grey_box(self, model):
+        # Test that the fixed_variables_in_activated_equalities_set function correctly identifies
+        # the fixed variables that are in the activated equality constraints in the model
+        fvaes = fixed_variables_in_activated_equalities_set(model)
+        assert len(fvaes) == 0
+
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        fvaes = fixed_variables_in_activated_equalities_set(model)
+        assert len(fvaes) == 2
+        for v in fvaes:
+            assert v.name in ["b1.Pin", "b1.egb.inputs[Pin]"]
+
+        # Deactivate the GreyBox and linking constraint
+        model.b1.egb.deactivate()
+        model.b1.link_Pin.deactivate()
+        fvaes = fixed_variables_in_activated_equalities_set(model)
+        assert len(fvaes) == 0
+    
+    @pytest.mark.unit
+    def test_number_fixed_variables_in_activated_equalities_w_grey_box(self, model):
+        # Test that the number_fixed_variables_in_activated_equalities function correctly counts
+        # the number of fixed variables that are in the activated equality constraints in the model
+        assert number_fixed_variables_in_activated_equalities(model) == 0
+
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        assert number_fixed_variables_in_activated_equalities(model) == 2
+
+        # Deactivate the GreyBox and linking constraint
+        model.b1.egb.deactivate()
+        model.b1.link_Pin.deactivate()
+        assert number_fixed_variables_in_activated_equalities(model) == 0
+    
+    @pytest.mark.unit
+    def test_unfixed_variables_in_activated_equalities_set_w_grey_box(self, model):
+        # Test that the unfixed_variables_in_activated_equalities_set function correctly identifies
+        # the unfixed variables that are in the activated equality constraints in the model
+        uvaes = unfixed_variables_in_activated_equalities_set(model, include_greybox=True)
+        assert len(uvaes) == 15
+        for v in uvaes:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        uvaes = unfixed_variables_in_activated_equalities_set(model, include_greybox=True)
+        assert len(uvaes) == 13
+        for v in uvaes:
+            assert v.name in [
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+
+    @pytest.mark.unit
+    def test_unfixed_greybox_variables_w_grey_box(self, model):
+        # Test that the unfixed_greybox_variables function correctly identifies
+        # the unfixed grey box variables in the model
+        ugv = unfixed_greybox_variables(model)
+        ugv_list = list(ugv)
+        assert len(ugv_list) == 7
+        for v in ugv_list:
+            assert v.name in [
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+
+    @pytest.mark.unit
+    def test_greybox_variables_w_grey_box(self, model):
+        # Test that the greybox_variables function correctly identifies the grey box variables in the model
+        gbv = greybox_variables(model)
+        gbv_list = list(gbv)
+        assert len(gbv_list) == 7
+        for v in gbv_list:
+            assert v.name in [
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+    
+    @pytest.mark.unit
+    def test_number_of_unfixed_greybox_variables_w_grey_box(self, model):
+        # Test that the number_of_unfixed_greybox_variables function correctly counts the number of unfixed grey box variables in the model
+        assert number_of_unfixed_greybox_variables(model) == 7
+        # Now fix some of the grey box variables and test again
+        model.b1.egb.inputs["Pin"].fix(1)
+        assert number_of_unfixed_greybox_variables(model) == 6
+    
+    @pytest.mark.unit
+    def test_number_of_greybox_variables_w_grey_box(self, model):
+        # Test that the number_of_greybox_variables function correctly counts the number of grey box variables in the model
+        assert number_of_greybox_variables(model) == 7
+    
+    @pytest.mark.unit
+    def test_number_unfixed_variables_in_activated_equalities_w_grey_box(self, model):
+        # Test that the number_unfixed_variables_in_activated_equalities function correctly counts
+        # the number of unfixed variables that are in the activated equality constraints in the model
+        assert number_unfixed_variables_in_activated_equalities(model, include_greybox=True) == 15
+
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        assert number_unfixed_variables_in_activated_equalities(model, include_greybox=True) == 13
+    
+    @pytest.mark.unit
+    def test_fixed_variables_only_in_inequalities_w_grey_box(self, model):
+        # Test that the fixed_variables_only_in_inequalities function correctly identifies
+        # the fixed variables that are only in the inequality constraints in the model
+        fvois = fixed_variables_only_in_inequalities(model)
+        assert len(fvois) == 0
+
+        # Fix Pin and deactivate the linking constraint so that Pin only appears in an inequality constraint
+        model.b1.Pin.fix(1)
+        model.b1.link_Pin.deactivate()
+        fvois = fixed_variables_only_in_inequalities(model)
+        assert len(fvois) == 1
+        for v in fvois:
+            assert v.name in ["b1.Pin"]
+
+    @pytest.mark.unit
+    def test_number_fixed_variables_only_in_inequalities_w_grey_box(self, model):
+        # Test that the number_fixed_variables_only_in_inequalities function correctly counts
+        # the number of fixed variables that are only in the inequality constraints in the model
+        assert number_fixed_variables_only_in_inequalities(model) == 0
+
+        # Fix Pin and deactivate the linking constraint so that Pin only appears in an inequality constraint
+        model.b1.Pin.fix(1)
+        model.b1.link_Pin.deactivate()
+        assert number_fixed_variables_only_in_inequalities(model) == 1
