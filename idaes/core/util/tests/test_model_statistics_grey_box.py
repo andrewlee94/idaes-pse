@@ -34,8 +34,8 @@ def model():
     m.b1.egb.set_external_model(PressureDropTwoEqualitiesTwoOutputsWithHessian(), build_implicit_constraint_objects=True)
 
     # Add Vars and linking constraints to m
-    m.b1.Pin = pyo.Var()
-    m.b1.c = pyo.Var()
+    m.b1.Pin = pyo.Var(initialize=101325, bounds=(0, 1e8))  # Not near bounds
+    m.b1.c = pyo.Var(initialize=1e-8, bounds=(0, 1))  # Near bounds
     m.b1.F = pyo.Var()
     m.b1.P1 = pyo.Var()
     m.b1.P3 = pyo.Var()
@@ -58,6 +58,18 @@ def model():
     # Add two inequalities to confirm behaviour
     m.b1.ineq = pyo.Constraint(expr=m.b1.Pin >= 0)
     m.b2.ineq = pyo.Constraint(expr=m.b2.v1 >= 0)
+
+    # Set some values and bounds in the grey box to confirm that grey box variables are included in the variable counts
+    # Include both inputs and outputs to confirm that both are included in the variable counts
+    m.b1.egb.inputs['Pin'].set_value(101325)
+    m.b1.egb.inputs['Pin'].setlb(0)
+    m.b1.egb.inputs['Pin'].setub(1e8)
+    m.b1.egb.inputs['c'].set_value(1e-8)
+    m.b1.egb.inputs['c'].setlb(0)
+    m.b1.egb.inputs['c'].setub(1)
+    m.b1.egb.outputs['P2'].set_value(90000)
+    m.b1.egb.outputs['P2'].setlb(90000)
+    m.b1.egb.outputs['P2'].setub(1e8)
 
     return m
 
@@ -796,3 +808,439 @@ class TestConstraintStatisticsGreyBox:
         model.b1.ineq.deactivate()
         assert number_deactivated_inequalities(model) == 1
 
+
+class TestVariableStatisticsGreyBox:
+    @pytest.mark.unit
+    def test_variables_generator_w_grey_box(self, model):
+        # Start with include_greybox = False to confirm that we are not including grey box variables
+        vg = variables_generator(model, include_greybox=False)
+        vg_list = list(vg)
+        assert len(vg_list) == 8
+        for v in vg_list:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+            ]
+        
+        # Now test with include_greybox = True to confirm that we are including grey box variables
+        vg = variables_generator(model, include_greybox=True)
+        vg_list = list(vg)
+        assert len(vg_list) == 15
+        for v in vg_list:
+            print(v.name)
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+    
+    @pytest.mark.unit
+    def test_variables_set_w_grey_box(self, model):
+        # Start with include_greybox = False to confirm that we are not including grey box variables
+        vs = variables_set(model, include_greybox=False)
+        assert len(vs) == 8
+        for v in vs:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+            ]
+        
+        # Now test with include_greybox = True to confirm that we are including grey box variables
+        vs = variables_set(model, include_greybox=True)
+        assert len(vs) == 15
+        for v in vs:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+    
+    @pytest.mark.unit
+    def test_number_variables_w_grey_box(self, model):
+        # Start with include_greybox = False to confirm that we are not including grey box variables
+        assert number_variables(model, include_greybox=False) == 8
+
+        # Now test with include_greybox = True to confirm that we are including grey box variables
+        assert number_variables(model, include_greybox=True) == 15
+    
+    @pytest.mark.unit
+    def test_fixed_variables_generator(self, model):
+        # Test that the fixed_variables_generator function correctly identifies the fixed variables in the model
+        fvg = fixed_variables_generator(model)
+        fvg_list = list(fvg)
+        assert len(fvg_list) == 0
+
+        # Fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        fvg = fixed_variables_generator(model)
+        fvg_list = list(fvg)
+        assert len(fvg_list) == 2
+        for v in fvg_list:
+            assert v.name in ["b1.Pin", "b1.egb.inputs[Pin]"]
+        
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        fvg = fixed_variables_generator(model, include_greybox=False)
+        fvg_list = list(fvg)
+        assert len(fvg_list) == 1
+        for v in fvg_list:
+            assert v.name in ["b1.Pin"]
+    
+    @pytest.mark.unit
+    def test_fixed_variables_set(self, model):
+        # Test that the fixed_variables_set function correctly identifies the fixed variables in the model
+        fvs = fixed_variables_set(model)
+        assert len(fvs) == 0
+
+        # Fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        fvs = fixed_variables_set(model)
+        assert len(fvs) == 2
+        for v in fvs:
+            assert v.name in ["b1.Pin", "b1.egb.inputs[Pin]"]
+        
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        fvs = fixed_variables_set(model, include_greybox=False)
+        assert len(fvs) == 1
+        for v in fvs:
+            assert v.name in ["b1.Pin"]
+    
+    @pytest.mark.unit
+    def test_number_fixed_variables(self, model):
+        # Test that the number_fixed_variables function correctly counts the number of fixed variables in the model
+        assert number_fixed_variables(model) == 0
+
+        # Fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        assert number_fixed_variables(model) == 2
+
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        assert number_fixed_variables(model, include_greybox=False) == 1
+    
+    @pytest.mark.unit
+    def test_unfixed_variables_generator(self, model):
+        # Test that the unfixed_variables_generator function correctly identifies the unfixed variables in the model
+        uv = unfixed_variables_generator(model)
+        uv_list = list(uv)
+        assert len(uv_list) == 15
+        for v in uv_list:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        uv = unfixed_variables_generator(model)
+        uv_list = list(uv)
+        assert len(uv_list) == 13
+        for v in uv_list:
+            assert v.name in [
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        uv = unfixed_variables_generator(model, include_greybox=False)
+        uv_list = list(uv)
+        assert len(uv_list) == 7
+        for v in uv_list:
+            assert v.name in [
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+            ]
+    
+    @pytest.mark.unit
+    def test_unfixed_variables_set(self, model):
+        # Test that the unfixed_variables_set function correctly identifies the unfixed variables in the model
+        uvs = unfixed_variables_set(model)
+        assert len(uvs) == 15
+        for v in uvs:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        uvs = unfixed_variables_set(model)
+        assert len(uvs) == 13
+        for v in uvs:
+            assert v.name in [
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        uvs = unfixed_variables_set(model, include_greybox=False)
+        assert len(uvs) == 7
+        for v in uvs:
+            assert v.name in [
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+            ]
+    
+    @pytest.mark.unit
+    def test_number_unfixed_variables(self, model):
+        # Test that the number_unfixed_variables function correctly counts the number of unfixed variables in the model
+        assert number_unfixed_variables(model) == 15
+
+        # Now fix some of the variables and test again
+        model.b1.Pin.fix(1)
+        model.b1.egb.inputs["Pin"].fix(1)
+        assert number_unfixed_variables(model) == 13
+
+        # Test again with include_greybox = False to confirm that we are not including grey box variables
+        assert number_unfixed_variables(model, include_greybox=False) == 7
+    
+    @pytest.mark.unit
+    def test_variables_near_bounds_generator(self, model):
+        # Test that the variables_near_bounds_generator function correctly identifies the variables that are near their bounds in the model
+        vnbg = variables_near_bounds_generator(model, tol=1e-6)
+        vnbg_list = list(vnbg)
+        assert len(vnbg_list) == 3
+        for v in vnbg_list:
+            assert v.name in ["b1.c", "b1.egb.inputs[c]", "b1.egb.outputs[P2]"]
+        
+        # Now test with include_greybox = False to confirm that we are not including grey box variables
+        vnbg = variables_near_bounds_generator(model, tol=1e-6, include_greybox=False)
+        vnbg_list = list(vnbg)
+        assert len(vnbg_list) == 1
+        for v in vnbg_list:
+            assert v.name in ["b1.c"]
+
+    @pytest.mark.unit
+    def test_variables_near_bounds_set(self, model):
+        # Test that the variables_near_bounds_set function correctly identifies the variables that are near their bounds in the model
+        vnbs = variables_near_bounds_set(model, tol=1e-6)
+        assert len(vnbs) == 3
+        for v in vnbs:
+            assert v.name in ["b1.c", "b1.egb.inputs[c]", "b1.egb.outputs[P2]"]
+        
+        # Now test with include_greybox = False to confirm that we are not including grey box variables
+        vnbs = variables_near_bounds_set(model, tol=1e-6, include_greybox=False)
+        assert len(vnbs) == 1
+        for v in vnbs:
+            assert v.name in ["b1.c"]
+    
+    @pytest.mark.unit
+    def test_number_variables_near_bounds(self, model):
+        # Test that the number_variables_near_bounds function correctly counts the number of variables that are near their bounds in the model
+        assert number_variables_near_bounds(model, tol=1e-6) == 3
+
+        # Now test with include_greybox = False to confirm that we are not including grey box variables
+        assert number_variables_near_bounds(model, tol=1e-6, include_greybox=False) == 1
+    
+    @pytest.mark.unit
+    def test_variables_in_activated_constraints_set_w_grey_box(self, model):
+        # Test that the variables_in_activated_constraints_set function correctly identifies the variables that are in the activated constraints in the model
+        # First, test with include_greybox = False
+        # We should see all the variables, including those in the grey box, as they appear
+        # in the linking constraints.
+        vics = variables_in_activated_constraints_set(model, include_greybox=False)
+        assert len(vics) == 15
+        for v in vics:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Next, deactivate the grey box - result should still be the same
+        model.b1.egb.deactivate()
+        vics = variables_in_activated_constraints_set(model, include_greybox=True)
+        assert len(vics) == 15
+        for v in vics:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Now, turn off a linking constraint
+        model.b1.link_Pin.deactivate()
+        vics = variables_in_activated_constraints_set(model, include_greybox=True)
+        assert len(vics) == 14
+        for v in vics:
+            assert v.name in [
+                "b1.Pin",  # This is in the inequality constraint
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                # "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+        
+        # Finally, turn the grey box back on
+        # All variables should be back, as the grey box variables are all considered
+        # to be in active constraints if the grey box is active
+        model.b1.egb.activate()
+        vics = variables_in_activated_constraints_set(model, include_greybox=True)
+        assert len(vics) == 15
+        for v in vics:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b2.v1",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.outputs[P2]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]",
+            ]
+    
+    @pytest.mark.unit
+    def test_number_variables_in_activated_constraints_w_grey_box(self, model):
+        # Test that the number_variables_in_activated_constraints function correctly counts the number of variables that are in the activated constraints in the model
+        # First, test with include_greybox = False
+        assert number_variables_in_activated_constraints(model, include_greybox=False) == 15
+
+        # Next, deactivate the grey box - result should still be the same
+        model.b1.egb.deactivate()
+        assert number_variables_in_activated_constraints(model, include_greybox=True) == 15
+
+        # Now, turn off a linking constraint
+        model.b1.link_Pin.deactivate()
+        assert number_variables_in_activated_constraints(model, include_greybox=True) == 14
+
+        # Finally, turn the grey box back on - should go back to 15
+        model.b1.egb.activate()
+        assert number_variables_in_activated_constraints(model, include_greybox=True) == 15
