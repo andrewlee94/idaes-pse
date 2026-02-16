@@ -63,11 +63,13 @@ def collect_model_statistics(model, include_greybox=True):
         model: Pyomo model to be studied
         include_greybox: Boolean to include implicit constraints from GreyBox
             models (default = True)
-    
+
     Returns:
         List of strings containing model statistics, formatted for display
     """
-    vars_in_constraints = variables_in_activated_constraints_set(model, include_greybox=include_greybox)
+    vars_in_constraints = variables_in_activated_constraints_set(
+        model, include_greybox=include_greybox
+    )
     fixed_vars_in_constraints = ComponentSet()
     free_vars_in_constraints = ComponentSet()
     free_vars_lb = ComponentSet()

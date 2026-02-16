@@ -1420,7 +1420,6 @@ class TestLegacyDiagnostics:
         for i in zero_vars:
             assert i is model.v1
 
-
     @pytest.mark.unit
     def test_vars_near_zero(self, model):
         model.v3.set_value(1e-5)
@@ -1450,7 +1449,6 @@ class TestLegacyDiagnostics:
         for i in near_zero_vars:
             assert i.local_name in ["v1", "v3"]
 
-
     @pytest.mark.unit
     def test_vars_with_none_value(self, model):
         none_value = variables_with_none_value_set(model)
@@ -1459,7 +1457,6 @@ class TestLegacyDiagnostics:
         assert len(none_value) == 1
         for i in none_value:
             assert i is model.v4
-
 
     @pytest.mark.unit
     def test_vars_with_bounds_issues(self, model):
@@ -1564,7 +1561,6 @@ class TestLegacyDiagnostics:
         bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
         assert isinstance(bounds_issue, ComponentSet)
         assert len(bounds_issue) == 1
-
 
     @pytest.mark.unit
     def test_vars_with_extreme_values(self):

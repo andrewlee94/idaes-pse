@@ -67,7 +67,7 @@
 #             v3 = v4 + self._input_values[1]  # c2
 #             v7 = 2e-8 * v1  # c4
 #             return [v1, v3, v4, v7]
-        
+
 #         def evaluate_jacobian_outputs(self):
 #             row = np.zeros(6)  # output index
 #             col = np.zeros(6)  # input index
@@ -216,7 +216,7 @@
 #     stream = StringIO()
 
 #     # Set some variable values to None for testing
-#     diagnostics_toolbox._model.v4.set_value(None)  
+#     diagnostics_toolbox._model.v4.set_value(None)
 #     diagnostics_toolbox._model.gb.inputs["v5"].set_value(None)
 
 #     diagnostics_toolbox.display_variables_with_none_value_in_activated_constraints(stream=stream)

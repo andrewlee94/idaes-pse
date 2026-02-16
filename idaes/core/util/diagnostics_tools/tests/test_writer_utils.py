@@ -229,8 +229,12 @@ class TestStatsWriter:
 
         m = ConcreteModel()
 
-        m.gb = ExternalGreyBoxBlock(external_model=BasicGrayBox(), build_implicit_constraint_objects=True)
-        m.gb_inactive = ExternalGreyBoxBlock(external_model=BasicGrayBox(), build_implicit_constraint_objects=True)
+        m.gb = ExternalGreyBoxBlock(
+            external_model=BasicGrayBox(), build_implicit_constraint_objects=True
+        )
+        m.gb_inactive = ExternalGreyBoxBlock(
+            external_model=BasicGrayBox(), build_implicit_constraint_objects=True
+        )
         m.gb_inactive.deactivate()
         m.a1 = Var(initialize=1)
         m.a1.fix()

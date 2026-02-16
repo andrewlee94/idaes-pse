@@ -861,7 +861,9 @@ def variables_set(block, include_greybox=True, active=True):
         A ComponentSet including all Var components in block
     """
     var_set = ComponentSet()
-    for var in variables_generator(block, include_greybox=include_greybox, active=active):
+    for var in variables_generator(
+        block, include_greybox=include_greybox, active=active
+    ):
         var_set.add(var)
     return var_set
 
@@ -1112,7 +1114,13 @@ def number_variables_near_bounds(
     )
 
 
-def variables_violating_bounds_generator(block: Block, abs_tol: float =1e-4, rel_tol: float =1e-4, include_greybox: bool =True, apply_scaling: bool =True):
+def variables_violating_bounds_generator(
+    block: Block,
+    abs_tol: float = 1e-4,
+    rel_tol: float = 1e-4,
+    include_greybox: bool = True,
+    apply_scaling: bool = True,
+):
     """
     Generator which returns all Var components in a model which have a value
     that violates their bounds.
@@ -1138,7 +1146,13 @@ def variables_violating_bounds_generator(block: Block, abs_tol: float =1e-4, rel
                 yield v
 
 
-def variables_violating_bounds_set(block: Block, abs_tol: float =1e-4, rel_tol: float =1e-4, include_greybox: bool =True, apply_scaling: bool =True):
+def variables_violating_bounds_set(
+    block: Block,
+    abs_tol: float = 1e-4,
+    rel_tol: float = 1e-4,
+    include_greybox: bool = True,
+    apply_scaling: bool = True,
+):
     """
     Method to return a ComponentSet of all Var components in a model which have
     a value that violates their bounds.
@@ -1148,19 +1162,29 @@ def variables_violating_bounds_set(block: Block, abs_tol: float =1e-4, rel_tol: 
         abs_tol : absolute tolerance for violation of bounds
         rel_tol : relative tolerance for violation of bounds
         include_greybox : whether to include greybox variables (default = True)
-        apply_scaling: whether to apply scaling factors to the variable when determining if it is violating bounds (default = True) 
+        apply_scaling: whether to apply scaling factors to the variable when determining if it is violating bounds (default = True)
     Returns:
         A ComponentSet including all Var components block that are violating
         their bounds
     """
     return ComponentSet(
         variables_violating_bounds_generator(
-            block, abs_tol=abs_tol, rel_tol=rel_tol, include_greybox=include_greybox, apply_scaling=apply_scaling
+            block,
+            abs_tol=abs_tol,
+            rel_tol=rel_tol,
+            include_greybox=include_greybox,
+            apply_scaling=apply_scaling,
         )
     )
 
 
-def number_variables_violating_bounds(block: Block, abs_tol: float =1e-4, rel_tol: float =1e-4, include_greybox: bool =True, apply_scaling: bool =True):
+def number_variables_violating_bounds(
+    block: Block,
+    abs_tol: float = 1e-4,
+    rel_tol: float = 1e-4,
+    include_greybox: bool = True,
+    apply_scaling: bool = True,
+):
     """
     Method to return the number of all Var components in a model which have
     a value that violates their bounds.
@@ -1176,7 +1200,11 @@ def number_variables_violating_bounds(block: Block, abs_tol: float =1e-4, rel_to
     """
     return len(
         variables_violating_bounds_set(
-            block, abs_tol=abs_tol, rel_tol=rel_tol, include_greybox=include_greybox, apply_scaling=apply_scaling
+            block,
+            abs_tol=abs_tol,
+            rel_tol=rel_tol,
+            include_greybox=include_greybox,
+            apply_scaling=apply_scaling,
         )
     )
 
@@ -1610,7 +1638,9 @@ def external_variables_set(block: Block, include_greybox: bool = True) -> Compon
     """
     ext_vars = ComponentSet()
     local_var_set = variables_set(block, include_greybox=include_greybox, active=None)
-    conc_var_set = variables_in_activated_constraints_set(block, include_greybox=include_greybox)
+    conc_var_set = variables_in_activated_constraints_set(
+        block, include_greybox=include_greybox
+    )
     for v in conc_var_set:
         if v not in local_var_set:
             ext_vars.add(v)
@@ -1626,7 +1656,7 @@ def number_external_variables(block: Block, include_greybox: bool = True) -> int
         block : model to be studied
         include_greybox: Boolean to include implicit constraints from GreyBox
         models (default = True)
-    
+
     Returns:
         Number of Var components which appear within activated Constraints in block,
         but do not appear in the variables_set of the model
@@ -1634,7 +1664,9 @@ def number_external_variables(block: Block, include_greybox: bool = True) -> int
     return len(external_variables_set(block, include_greybox=include_greybox))
 
 
-def variables_fixed_to_zero_set(block: Block, include_greybox: bool = True) -> ComponentSet:
+def variables_fixed_to_zero_set(
+    block: Block, include_greybox: bool = True
+) -> ComponentSet:
     """
     Method to return a ComponentSet of all Var components which are fixed to zero in a model.
 
@@ -1668,7 +1700,12 @@ def number_variables_fixed_to_zero(block: Block, include_greybox: bool = True) -
     return len(variables_fixed_to_zero_set(block, include_greybox=include_greybox))
 
 
-def variables_near_zero_set(block: Block, tol: float = 1e-4, include_greybox: bool = True, scale_variables: bool = True) -> ComponentSet:
+def variables_near_zero_set(
+    block: Block,
+    tol: float = 1e-4,
+    include_greybox: bool = True,
+    scale_variables: bool = True,
+) -> ComponentSet:
     """
     Method to return a ComponentSet of all Var components which have a value within tol of zero in a model.
 
@@ -1690,7 +1727,12 @@ def variables_near_zero_set(block: Block, tol: float = 1e-4, include_greybox: bo
     return var_set
 
 
-def number_variables_near_zero(block: Block, tol: float = 1e-4, include_greybox: bool = True, scale_variables: bool = True) -> int:
+def number_variables_near_zero(
+    block: Block,
+    tol: float = 1e-4,
+    include_greybox: bool = True,
+    scale_variables: bool = True,
+) -> int:
     """
     Method to return the number of Var components which have a value within tol of zero in a model.
 
@@ -1704,7 +1746,14 @@ def number_variables_near_zero(block: Block, tol: float = 1e-4, include_greybox:
     Returns:
         Number of Var components which have a value within tol of zero in block
     """
-    return len(variables_near_zero_set(block, tol=tol, include_greybox=include_greybox, scale_variables=scale_variables))
+    return len(
+        variables_near_zero_set(
+            block,
+            tol=tol,
+            include_greybox=include_greybox,
+            scale_variables=scale_variables,
+        )
+    )
 
 
 def variables_with_none_value_set(block, include_greybox=True):
@@ -1741,7 +1790,14 @@ def number_variables_with_none_value(block, include_greybox=True):
     return len(variables_with_none_value_set(block, include_greybox=include_greybox))
 
 
-def variables_with_extreme_values_set(block: Block, large: float, small: float, zero: float, include_greybox: bool = True, apply_scaling: bool = True):
+def variables_with_extreme_values_set(
+    block: Block,
+    large: float,
+    small: float,
+    zero: float,
+    include_greybox: bool = True,
+    apply_scaling: bool = True,
+):
     """Method to return a ComponentSet of all Var components which have a value with magnitude larger than large or smaller than small (but larger than zero) in a model.
 
     Args:
@@ -1768,7 +1824,14 @@ def variables_with_extreme_values_set(block: Block, large: float, small: float, 
     return extreme_vars
 
 
-def number_variables_with_extreme_values(block: Block, large: float, small: float, zero: float, include_greybox: bool = True, apply_scaling: bool = True):
+def number_variables_with_extreme_values(
+    block: Block,
+    large: float,
+    small: float,
+    zero: float,
+    include_greybox: bool = True,
+    apply_scaling: bool = True,
+):
     """Method to return the number of Var components which have a value with magnitude larger than large or smaller than small (but larger than zero) in a model.
 
     Args:
@@ -1782,7 +1845,16 @@ def number_variables_with_extreme_values(block: Block, large: float, small: floa
     Returns:
         Number of Var components which have a value with magnitude larger than large or smaller than small (but larger than zero) in block
     """
-    return len(variables_with_extreme_values_set(block, large, small, zero, include_greybox=include_greybox, apply_scaling=apply_scaling))
+    return len(
+        variables_with_extreme_values_set(
+            block,
+            large,
+            small,
+            zero,
+            include_greybox=include_greybox,
+            apply_scaling=apply_scaling,
+        )
+    )
 
 
 # -------------------------------------------------------------------------

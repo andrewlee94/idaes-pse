@@ -262,7 +262,7 @@ CONFIG.declare(
         default=True,
         domain=bool,
         description="Whether to apply scaling factors when evaluating diagnostics. "
-        " If True, any scaling factors present will be applied."
+        " If True, any scaling factors present will be applied.",
     ),
 )
 
@@ -345,7 +345,9 @@ class DiagnosticsToolbox:
         """
         write_report_section(
             stream=stream,
-            lines_list=external_variables_set(self._model, include_greybox=self.config.include_grey_box_blocks),
+            lines_list=external_variables_set(
+                self._model, include_greybox=self.config.include_grey_box_blocks
+            ),
             title="The following external variable(s) appear in constraints within the model:",
             header="=",
             footer="=",
@@ -364,7 +366,9 @@ class DiagnosticsToolbox:
         """
         write_report_section(
             stream=stream,
-            lines_list=variables_not_in_activated_constraints_set(self._model, include_greybox=self.config.include_grey_box_blocks),
+            lines_list=variables_not_in_activated_constraints_set(
+                self._model, include_greybox=self.config.include_grey_box_blocks
+            ),
             title="The following variable(s) do not appear in any activated constraints within the model:",
             header="=",
             footer="=",
@@ -383,7 +387,9 @@ class DiagnosticsToolbox:
         """
         write_report_section(
             stream=stream,
-            lines_list=variables_fixed_to_zero_set(self._model, include_greybox=self.config.include_grey_box_blocks),
+            lines_list=variables_fixed_to_zero_set(
+                self._model, include_greybox=self.config.include_grey_box_blocks
+            ),
             title="The following variable(s) are fixed to zero:",
             header="=",
             footer="=",
@@ -1255,7 +1261,9 @@ class DiagnosticsToolbox:
         """
         # Collect cautions
         cautions = []
-        zero_vars = variables_fixed_to_zero_set(self._model, include_greybox=self.config.include_grey_box_blocks)
+        zero_vars = variables_fixed_to_zero_set(
+            self._model, include_greybox=self.config.include_grey_box_blocks
+        )
         if len(zero_vars) > 0:
             vstring = "variables"
             if len(zero_vars) == 1:
@@ -1466,7 +1474,9 @@ class DiagnosticsToolbox:
             )
 
         # Variables with value None
-        none_value = variables_with_none_value_set(self._model, include_greybox=self.config.include_grey_box_blocks)
+        none_value = variables_with_none_value_set(
+            self._model, include_greybox=self.config.include_grey_box_blocks
+        )
         if len(none_value) > 0:
             cstring = "Variables"
             if len(none_value) == 1:
