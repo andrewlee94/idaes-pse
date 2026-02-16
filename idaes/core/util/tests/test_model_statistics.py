@@ -999,6 +999,74 @@ def test_number_derivative_variables():
     assert number_derivative_variables(m) == 0
 
 
+# -------------------------------------------------------------------------
+# Tests for new model_statistics functions
+@pytest.mark.unit
+def test_variables_fixed_to_zero_set(m):
+    m.v_zero = Var(initialize=0)
+    m.v_zero.fix(0)
+    var_set = variables_fixed_to_zero_set(m)
+    assert m.v_zero in var_set
+    assert len(var_set) == 1
+
+@pytest.mark.unit
+def test_number_variables_fixed_to_zero(m):
+    m.v_zero = Var(initialize=0)
+    m.v_zero.fix(0)
+    assert number_variables_fixed_to_zero(m) == 1
+
+@pytest.mark.unit
+def test_variables_near_zero_set(m):
+    m.v_small = Var(initialize=1e-5)
+    m.v_small.value = 1e-5
+    var_set = variables_near_zero_set(m, tol=1e-4)
+    assert m.v_small in var_set
+    assert len(var_set) == 1
+
+@pytest.mark.unit
+def test_number_variables_near_zero(m):
+    m.v_small = Var(initialize=1e-5)
+    m.v_small.value = 1e-5
+    assert number_variables_near_zero(m, tol=1e-4) == 1
+
+@pytest.mark.unit
+def test_variables_with_none_value_set(m):
+    m.v_none = Var()
+    # Do not set value
+    var_set = variables_with_none_value_set(m)
+    assert m.v_none in var_set
+    for v in var_set:
+        if v is m.v_none:
+            assert v.value is None
+        else:
+            assert v.name.startswith("dv[")
+    assert len(var_set) == 12
+
+@pytest.mark.unit
+def test_number_variables_with_none_value(m):
+    m.v_none = Var()
+    assert number_variables_with_none_value(m) == 12
+
+@pytest.mark.unit
+def test_variables_with_extreme_values_set(m):
+    m.v_large = Var(initialize=1e6)
+    m.v_small = Var(initialize=1e-8)
+    m.v_zero = Var(initialize=0)
+    var_set = variables_with_extreme_values_set(m, large=1e5, small=1e-7, zero=1e-10)
+    assert m.v_large in var_set
+    assert m.v_small in var_set
+    assert m.v_zero not in var_set
+    assert len(var_set) == 2
+
+@pytest.mark.unit
+def test_number_variables_with_extreme_values(m):
+    m.v_large = Var(initialize=1e6)
+    m.v_small = Var(initialize=1e-8)
+    m.v_zero = Var(initialize=0)
+    n = number_variables_with_extreme_values(m, large=1e5, small=1e-7, zero=1e-10)
+    assert n == 2
+
+
 @pytest.mark.unit
 def test_uninitialized_variables_in_activated_constraints():
     m = ConcreteModel()

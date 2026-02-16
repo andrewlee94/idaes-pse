@@ -1899,6 +1899,99 @@ class TestExpressionStatisticsGreyBox:
         assert number_expressions(model) == 1
 
 
+# -------------------------------------------------------------------------
+# Tests for new model_statistics functions (grey box)
+class TestNewStatisticsGreyBox:
+    @pytest.mark.unit
+    def test_external_variables_set(self, model):
+        ext_vars = external_variables_set(model, include_greybox=True)
+        # In this model, all variables are linked, so expect 0
+        assert len(ext_vars) == 0
+
+    @pytest.mark.unit
+    def test_number_external_variables(self, model):
+        assert number_external_variables(model, include_greybox=True) == 0
+
+    @pytest.mark.unit
+    def test_variables_fixed_to_zero_set(self, model):
+        model.b1.zero_var = pyo.Var(initialize=0)
+        model.b1.zero_var.fix(0)
+        var_set = variables_fixed_to_zero_set(model, include_greybox=True)
+        assert model.b1.zero_var in var_set
+        assert len(var_set) == 1
+
+    @pytest.mark.unit
+    def test_number_variables_fixed_to_zero(self, model):
+        model.b1.zero_var = pyo.Var(initialize=0)
+        model.b1.zero_var.fix(0)
+        assert number_variables_fixed_to_zero(model, include_greybox=True) == 1
+
+    @pytest.mark.unit
+    def test_variables_near_zero_set(self, model):
+        model.b1.near_zero = pyo.Var(initialize=1e-5)
+        model.b1.near_zero.value = 1e-5
+        var_set = variables_near_zero_set(model, tol=1e-4, include_greybox=True)
+        for v in var_set:
+            assert v.name in ["b1.near_zero", "b1.c", "b1.egb.inputs[c]"]
+        assert len(var_set) == 3
+
+    @pytest.mark.unit
+    def test_number_variables_near_zero(self, model):
+        model.b1.near_zero = pyo.Var(initialize=1e-5)
+        model.b1.near_zero.value = 1e-5
+        assert number_variables_near_zero(model, tol=1e-4, include_greybox=True) == 3
+
+    @pytest.mark.unit
+    def test_variables_with_none_value_set(self, model):
+        model.b1.none_var = pyo.Var()
+        var_set = variables_with_none_value_set(model, include_greybox=True)
+        for v in var_set:
+            assert v.name in [
+                "b1.F",
+                "b1.P1",
+                "b1.P3",
+                "b1.P2",
+                "b1.Pout",
+                "b1.none_var",
+                "b2.v1",
+                "b1.egb.inputs[F]",
+                "b1.egb.inputs[P1]",
+                "b1.egb.inputs[P3]",
+                "b1.egb.outputs[Pout]"
+            ]
+        assert len(var_set) == 11
+
+    @pytest.mark.unit
+    def test_number_variables_with_none_value(self, model):
+        model.b1.none_var = pyo.Var()
+        assert number_variables_with_none_value(model, include_greybox=True) == 11
+
+    @pytest.mark.unit
+    def test_variables_with_extreme_values_set(self, model):
+        model.b1.large = pyo.Var(initialize=1e6)
+        model.b1.small = pyo.Var(initialize=1e-8)
+        model.b1.zero = pyo.Var(initialize=0)
+        var_set = variables_with_extreme_values_set(model, large=1e5, small=1e-7, zero=1e-10, include_greybox=True)
+        for v in var_set:
+            assert v.name in [
+                "b1.Pin",
+                "b1.c",
+                "b1.large",
+                "b1.small",
+                "b1.egb.inputs[Pin]",
+                "b1.egb.inputs[c]"
+            ]
+        assert len(var_set) == 6
+
+    @pytest.mark.unit
+    def test_number_variables_with_extreme_values(self, model):
+        model.b1.large = pyo.Var(initialize=1e6)
+        model.b1.small = pyo.Var(initialize=1e-8)
+        model.b1.zero = pyo.Var(initialize=0)
+        n = number_variables_with_extreme_values(model, large=1e5, small=1e-7, zero=1e-10, include_greybox=True)
+        assert n == 6
+
+
 @pytest.mark.unit
 def test_degrees_of_freedom(model):
     # Test that the degree_of_freedom function correctly calculates the
