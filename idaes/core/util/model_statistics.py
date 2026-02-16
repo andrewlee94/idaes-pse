@@ -2156,7 +2156,11 @@ def degrees_of_freedom(block, include_greybox=True):
 
 
 def large_residuals_set(
-    block, tol=1e-5, return_residual_values=False, include_greybox=True
+    block,
+    tol=1e-5,
+    return_residual_values=False,
+    include_greybox=True,
+    apply_scaling=True,
 ):
     """
     Method to return a ComponentSet of all Constraint components with a
@@ -2168,6 +2172,8 @@ def large_residuals_set(
         return_residual_values: boolean, if true return dictionary with
             residual values
         include_greybox: boolean, if true include GreyBox constraints (default = True)
+        apply_scaling: boolean, if true apply scaling factors to the residuals when determining
+        if they are large (default = True)
 
     Returns:
         large_residual_set: A ComponentSet including all Constraint components
@@ -2181,10 +2187,9 @@ def large_residuals_set(
 
     for c in activated_constraints_generator(block, include_greybox=include_greybox):
         # Grey Box constraints cannot be scaled in the normal fashion
-        if not isinstance(c, ExternalGreyBoxConstraint):
+        sf = 1
+        if apply_scaling and not isinstance(c, ExternalGreyBoxConstraint):
             sf = get_scaling_factor(c, default=1, warning=False)
-        else:
-            sf = 1
 
         try:
             val = value(c.body)

@@ -1009,11 +1009,13 @@ def test_variables_fixed_to_zero_set(m):
     assert m.v_zero in var_set
     assert len(var_set) == 1
 
+
 @pytest.mark.unit
 def test_number_variables_fixed_to_zero(m):
     m.v_zero = Var(initialize=0)
     m.v_zero.fix(0)
     assert number_variables_fixed_to_zero(m) == 1
+
 
 @pytest.mark.unit
 def test_variables_near_zero_set(m):
@@ -1023,11 +1025,23 @@ def test_variables_near_zero_set(m):
     assert m.v_small in var_set
     assert len(var_set) == 1
 
+    set_scaling_factor(m.v_small, 1e5)
+    var_set = variables_near_zero_set(m, tol=1e-4, scale_variables=True)
+    assert len(var_set) == 0
+    var_set = variables_near_zero_set(m, tol=1e-4, scale_variables=False)
+    assert len(var_set) == 1
+    assert m.v_small in var_set
+
+
 @pytest.mark.unit
 def test_number_variables_near_zero(m):
     m.v_small = Var(initialize=1e-5)
     m.v_small.value = 1e-5
     assert number_variables_near_zero(m, tol=1e-4) == 1
+    set_scaling_factor(m.v_small, 1e5)
+    assert number_variables_near_zero(m, tol=1e-4, scale_variables=True) == 0
+    assert number_variables_near_zero(m, tol=1e-4, scale_variables=False) == 1
+
 
 @pytest.mark.unit
 def test_variables_with_none_value_set(m):
@@ -1042,10 +1056,12 @@ def test_variables_with_none_value_set(m):
             assert v.name.startswith("dv[")
     assert len(var_set) == 12
 
+
 @pytest.mark.unit
 def test_number_variables_with_none_value(m):
     m.v_none = Var()
     assert number_variables_with_none_value(m) == 12
+
 
 @pytest.mark.unit
 def test_variables_with_extreme_values_set(m):
@@ -1058,13 +1074,45 @@ def test_variables_with_extreme_values_set(m):
     assert m.v_zero not in var_set
     assert len(var_set) == 2
 
+    set_scaling_factor(m.v_small, 1e8)
+    var_set = variables_with_extreme_values_set(
+        m, large=1e5, small=1e-7, zero=1e-10, apply_scaling=True
+    )
+    assert m.v_large in var_set
+    assert m.v_small not in var_set
+    assert m.v_zero not in var_set
+    assert len(var_set) == 1
+    var_set = variables_with_extreme_values_set(
+        m, large=1e5, small=1e-7, zero=1e-10, apply_scaling=False
+    )
+    assert m.v_large in var_set
+    assert m.v_small in var_set
+    assert m.v_zero not in var_set
+    assert len(var_set) == 2
+
+
 @pytest.mark.unit
 def test_number_variables_with_extreme_values(m):
     m.v_large = Var(initialize=1e6)
     m.v_small = Var(initialize=1e-8)
     m.v_zero = Var(initialize=0)
-    n = number_variables_with_extreme_values(m, large=1e5, small=1e-7, zero=1e-10)
-    assert n == 2
+    assert (
+        number_variables_with_extreme_values(m, large=1e5, small=1e-7, zero=1e-10) == 2
+    )
+
+    set_scaling_factor(m.v_small, 1e8)
+    assert (
+        number_variables_with_extreme_values(
+            m, large=1e5, small=1e-7, zero=1e-10, apply_scaling=True
+        )
+        == 1
+    )
+    assert (
+        number_variables_with_extreme_values(
+            m, large=1e5, small=1e-7, zero=1e-10, apply_scaling=False
+        )
+        == 2
+    )
 
 
 @pytest.mark.unit
@@ -1518,6 +1566,18 @@ class TestLegacyDiagnostics:
             assert i.local_name in ["v1", "v3"]
 
     @pytest.mark.unit
+    def test_vars_near_zero_apply_scaling(self, model):
+        # v3 is 1e-4, set scaling so it appears near zero
+        model.v3.set_value(1e-4)
+        set_scaling_factor(model.v3, 1e2)
+        # With scaling, v3*sf = 1e-2 > tol, so not included
+        near_zero_vars = variables_near_zero_set(model, tol=1e-3, scale_variables=True)
+        assert model.v3 not in near_zero_vars
+        # Without scaling, v3 is included
+        near_zero_vars = variables_near_zero_set(model, tol=1e-3, scale_variables=False)
+        assert model.v3 in near_zero_vars
+
+    @pytest.mark.unit
     def test_vars_with_none_value(self, model):
         none_value = variables_with_none_value_set(model)
 
@@ -1658,3 +1718,10 @@ class TestLegacyDiagnostics:
         assert len(xvars) == 2
         for i in xvars:
             assert i.name in ["v1", "v6"]
+
+        # Test apply_scaling argument
+        # With apply_scaling=False, only v2 and v7 should be included
+        xvars_noscale = variables_with_extreme_values_set(
+            m, large=1e9, small=1e-7, zero=1e-10, apply_scaling=False
+        )
+        assert set([v.name for v in xvars_noscale]) == {"v2", "v7"}
