@@ -1056,6 +1056,7 @@ def variables_near_bounds_set(
     abs_tol=1e-4,
     rel_tol=1e-4,
     include_greybox=True,
+    apply_scaling=True,
 ):
     """
     Method to return a ComponentSet of all Var components in a model which have
@@ -1068,6 +1069,8 @@ def variables_near_bounds_set(
         skip_lb: Boolean to skip lower bound (default = False)
         skip_ub: Boolean to skip upper bound (default = False)
         include_greybox : whether to include greybox variables (default = True)
+        apply_scaling: whether to apply scaling factors to the variable when determining
+        if it is near a bound (default = True)
 
     Returns:
         A ComponentSet including all Var components block that are close to a
@@ -1083,6 +1086,7 @@ def variables_near_bounds_set(
             abs_tol,
             rel_tol,
             include_greybox=include_greybox,
+            apply_scaling=apply_scaling,
         )
     )
 

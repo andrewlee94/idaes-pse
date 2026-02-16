@@ -470,7 +470,7 @@ class DiagnosticsToolbox:
             footer="=",
         )
 
-    def _verify_active_variables_initialized(self, stream=None):
+    def _verify_active_variables_initialized(self):
         """
         Validate that all variables are initialized (i.e., have values set to
         something other than None) before doing further numerical analysis.
@@ -572,6 +572,8 @@ class DiagnosticsToolbox:
                     self._model,
                     abs_tol=self.config.variable_bounds_absolute_tolerance,
                     rel_tol=self.config.variable_bounds_relative_tolerance,
+                    include_greybox=self.config.include_grey_box_blocks,
+                    apply_scaling=self.config.apply_scaling,
                 )
             ],
             title=f"The following variable(s) have values close to their bounds "
@@ -619,6 +621,8 @@ class DiagnosticsToolbox:
             self._model,
             tol=self.config.constraint_residual_tolerance,
             return_residual_values=True,
+            include_greybox=self.config.include_grey_box_blocks,
+            apply_scaling=self.config.apply_scaling,
         )
 
         lrs = []
@@ -790,7 +794,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         jac, nlp = get_jacobian(self._model)
 
@@ -826,7 +830,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         jac, nlp = get_jacobian(self._model)
 
@@ -863,7 +867,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         jac, nlp = get_jacobian(self._model, include_scaling_factors=True)
         xje = extreme_jacobian_entries(
@@ -896,7 +900,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         parallel = [
             f"{i[0].name}, {i[1].name}"
@@ -927,7 +931,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         parallel = [
             f"{i[0].name}, {i[1].name}"
@@ -1009,7 +1013,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         mismatch, _, _ = self._collect_constraint_mismatches()
 
@@ -1041,7 +1045,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         _, canceling, _ = self._collect_constraint_mismatches()
 
@@ -1078,7 +1082,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         # Check that constraint is of correct type to give useful error message
         if not isinstance(constraint, ConstraintData):
@@ -1174,7 +1178,7 @@ class DiagnosticsToolbox:
         # Although, in principle, this method doesn't require
         # all variables to be initialized, its current
         # implementation does.
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         _, _, constant = self._collect_constraint_mismatches()
 
@@ -1665,7 +1669,7 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized(stream=stream)
+        self._verify_active_variables_initialized()
 
         jac, nlp = get_jacobian(self._model)
 
