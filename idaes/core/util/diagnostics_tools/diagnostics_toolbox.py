@@ -968,6 +968,8 @@ class DiagnosticsToolbox:
             List of strings summarising constraints with cancellations
             List of strings with constraint names where constraint contains no free variables
         """
+        self._verify_active_variables_initialized()
+
         walker = ConstraintTermAnalysisVisitor(
             term_mismatch_tolerance=self.config.constraint_term_mismatch_tolerance,
             term_cancellation_tolerance=self.config.constraint_term_cancellation_tolerance,
@@ -1013,8 +1015,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized()
-
         mismatch, _, _ = self._collect_constraint_mismatches()
 
         # Write the output
@@ -1045,8 +1045,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        self._verify_active_variables_initialized()
-
         _, canceling, _ = self._collect_constraint_mismatches()
 
         # Write the output
@@ -1098,7 +1096,7 @@ class DiagnosticsToolbox:
                 raise TypeError(
                     f"{constraint.name} is not an instance of a Pyomo Constraint."
                 )
-        sf = get_scaling_factor(constraint, default=1, warning=False)
+        sf = get_scaling_factor(constraint, default=1, warning=False) if self.config.apply_scaling else 1
 
         # Don't need to scale constraint_term_mismatch_tolerance and
         # constraint_term_cancellation_tolerance because they are both
@@ -1178,8 +1176,6 @@ class DiagnosticsToolbox:
         # Although, in principle, this method doesn't require
         # all variables to be initialized, its current
         # implementation does.
-        self._verify_active_variables_initialized()
-
         _, _, constant = self._collect_constraint_mismatches()
 
         # Write the output

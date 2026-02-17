@@ -43,6 +43,7 @@ from idaes.core.util.diagnostics_tools.diagnostics_toolbox import (
 logging.getLogger("cyipopt").setLevel(logging.WARNING)
 
 
+# TODO: Pyomo NLP does not know how to handle Grey Box components
 # TODO: Pyomo MIS does not handle Grey Box components
 
 
@@ -596,3 +597,100 @@ Dulmage-Mendelsohn Over-Constrained Set
 """
 
     assert stream.getvalue() == expected
+
+# ====================================================================================
+# Reporting methods
+@pytest.mark.component
+def test_collect_structural_warnings(diagnostics_toolbox):
+    # Create structural singularities
+    blk = diagnostics_toolbox._model
+    blk.v4_1.fix()
+    blk.v4_2.fix()
+
+    warnings, next_steps = diagnostics_toolbox._collect_structural_warnings()
+    
+    assert len(warnings) == 3
+    assert "WARNING: -2 Degrees of Freedom" in warnings
+    assert "WARNING: 6 Components with inconsistent units" in warnings
+    assert """WARNING: Structural singularity found
+        Under-Constrained Set: 0 variables, 0 constraints
+        Over-Constrained Set: 11 variables, 13 constraints""" in warnings
+
+    assert len(next_steps) == 2
+    assert "display_components_with_inconsistent_units()" in next_steps
+    assert "display_overconstrained_set()" in next_steps
+
+
+@pytest.mark.component
+def test_collect_structural_cautions(diagnostics_toolbox):
+    # Create structural singularities
+    blk = diagnostics_toolbox._model
+    blk.v4_1.fix()
+    blk.v4_2.fix()
+
+    cautions = diagnostics_toolbox._collect_structural_cautions()
+
+    assert len(cautions) == 2
+    assert "Caution: 2 variables fixed to 0" in cautions
+    assert "Caution: 1 unused variable (0 fixed)" in cautions
+
+
+@pytest.mark.component
+def test_collect_numerical_warnings(diagnostics_toolbox):
+    warnings, next_steps = diagnostics_toolbox._collect_numerical_warnings()
+
+    for w in warnings:
+        print(w)
+    for n in next_steps:
+        print(n)
+
+    assert len(warnings) == 2
+    assert "WARNING: 6 variable(s) with value near zero" in warnings
+    assert "WARNING: 4 variable(s) with extreme values" in warnings
+
+    assert len(next_steps) == 2
+    assert "display_variables_with_value_near_zero()" in next_steps
+    assert "display_variables_with_extreme_values()" in next_steps
+
+    assert False
+
+
+# ====================================================================================
+# Functionality tests
+# These tests are for methods that can/do not interact with Grey Box components,
+# but we want to ensure work when Grey Box components are present in the model.
+@pytest.mark.unit
+def test_collect_constraint_mismatches(diagnostics_toolbox):
+    blk = diagnostics_toolbox._model
+
+    blk.b3 = Block()
+    blk.b3.v1 = Var(initialize=2)
+    blk.b3.v2 = Var(initialize=3)
+
+    # Constraint with no free variables
+    blk.b3.c1 = Constraint(expr=blk.b3.v1 == blk.b3.v2)
+    blk.b3.v1.fix()
+    blk.b3.v2.fix()
+
+    # Constraint with mismatched terms
+    blk.b3.v3 = Var(initialize=10)
+    blk.b3.v4 = Var(initialize=10)
+    blk.b3.v5 = Var(initialize=1e-6)
+    blk.b3.c2 = Constraint(expr=blk.b3.v3 == blk.b3.v4 + blk.b3.v5)
+
+    # Constraint with cancellation
+    blk.b3.v6 = Var(initialize=10)
+    blk.b3.c3 = Constraint(expr=blk.b3.v6 == 10 + blk.b3.v3 - blk.b3.v4)
+
+    mismatch, canceling, constant = diagnostics_toolbox._collect_constraint_mismatches()
+
+    print(mismatch)
+    print(canceling)
+    print(constant)
+
+    assert mismatch == ["b.b3.c2: 1 mismatched term(s)"]
+    assert canceling == [
+        "b.b3.c2: 1 potential canceling term(s)",
+        "b.b3.c3: 1 potential canceling term(s)",
+    ]
+    assert constant == ["b.b3.c1"]
