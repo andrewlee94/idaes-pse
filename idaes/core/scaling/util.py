@@ -68,7 +68,7 @@ from pyomo.contrib.pynumero.interfaces.pyomo_grey_box_nlp import (
     PyomoNLPWithGreyBoxBlocks,
 )
 from pyomo.contrib.pynumero.interfaces.external_grey_box import ExternalGreyBoxBlockData
-from pyomo.contrib.pynumero.interfaces.external_grey_box_constraint import ExternalGreyBoxConstraintData
+from pyomo.contrib.pynumero.interfaces.external_grey_box_constraint import ExternalGreyBoxConstraint
 
 from idaes.core.util.exceptions import BurntToast
 import idaes.logger as idaeslog
@@ -501,6 +501,10 @@ def get_scaling_factor(component, default: float = None, warning: bool = False):
         sfx_finder = SuffixFinder("scaling_factor")
     elif isinstance(component, ExpressionData):
         sfx_finder = SuffixFinder("scaling_hint")
+    elif isinstance(component, ExternalGreyBoxConstraint):
+        # External Grey Box Constraints cannot be given scaling factors, but we need them to behave as if
+        # they were Constraints, so we will return the default value here (or a value of 1.0 if no default)
+        return default if default is not None else 1.0
     else:
         raise TypeError(
             f"Can get scaling factors for only VarData, ConstraintData, and (hints from) ExpressionData. "

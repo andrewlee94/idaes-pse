@@ -343,10 +343,10 @@ class TestJacobianMethodsWithGreyBox:
             ("link_F", "egb.inputs[F]"): -1.0,
             ("link_P_out", "Pout"): 1.0,
             ("link_P_out", "egb.outputs[Pout]"): -1.0,
-            ("egb.output_constraints[Pout]", "egb.inputs[Pin]"): 1.0,
-            ("egb.output_constraints[Pout]", "egb.inputs[c]"): -1.0,  # -4*0.5**2
-            ("egb.output_constraints[Pout]", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
-            ("egb.output_constraints[Pout]", "egb.outputs[Pout]"): -1.0,
+            ("egb.Pout_constraint", "egb.inputs[Pin]"): 1.0,
+            ("egb.Pout_constraint", "egb.inputs[c]"): -1.0,  # -4*0.5**2
+            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
+            ("egb.Pout_constraint", "egb.outputs[Pout]"): -1.0,
         }
 
         jac_coo = jac.tocoo()
@@ -398,10 +398,10 @@ class TestJacobianMethodsWithGreyBox:
             ("link_F", "egb.inputs[F]"): -1.0,
             ("link_P_out", "Pout"): 1.0,
             ("link_P_out", "egb.outputs[Pout]"): -1.0,
-            ("egb.output_constraints[Pout]", "egb.inputs[Pin]"): 1.0,
-            ("egb.output_constraints[Pout]", "egb.inputs[c]"): -1.0,  # -4*0.5**2
-            ("egb.output_constraints[Pout]", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
-            ("egb.output_constraints[Pout]", "egb.outputs[Pout]"): -1.0,
+            ("egb.Pout_constraint", "egb.inputs[Pin]"): 1.0,
+            ("egb.Pout_constraint", "egb.inputs[c]"): -1.0,  # -4*0.5**2
+            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
+            ("egb.Pout_constraint", "egb.outputs[Pout]"): -1.0,
             ("ineq", "Pout"): 1.0,
         }
 
@@ -441,11 +441,11 @@ class TestJacobianMethodsWithGreyBox:
             ("link_F", "egb.inputs[F]"): -1.0,
             ("link_P_out", "Pout"): 1.0,
             ("link_P_out", "egb.outputs[Pout]"): -1.0,
-            # All EGB constraints get multiplies by 0.025
-            ("egb.output_constraints[Pout]", "egb.inputs[Pin]"): 0.025,
-            ("egb.output_constraints[Pout]", "egb.inputs[c]"): -0.025,
-            ("egb.output_constraints[Pout]", "egb.inputs[F]"): -100.0,
-            ("egb.output_constraints[Pout]", "egb.outputs[Pout]"): -0.025,
+            # All EGB constraints get multiplied by 0.025
+            ("egb.Pout_constraint", "egb.inputs[Pin]"): 0.025,
+            ("egb.Pout_constraint", "egb.inputs[c]"): -0.025,
+            ("egb.Pout_constraint", "egb.inputs[F]"): -100.0,
+            ("egb.Pout_constraint", "egb.outputs[Pout]"): -0.025,
         }
 
         jac_coo = jac.tocoo()

@@ -324,6 +324,21 @@ class DiagnosticsToolbox:
         self._model = model
         self.config = CONFIG(kwargs)
 
+        if len(greybox_block_set(model)) != 0:
+            if self.config.include_grey_box_blocks:
+                _log.warning(
+                    "External Grey Box Models detected in model. If these were not constructed with "
+                    "build_implicit_constraint_objects=True, then the implicit constraints "
+                    "will not be detected by the Diagnostics Toolbox, which may lead to structural "
+                    "issues being reported."
+                )
+            else:
+                _log.warning(
+                    "Grey Box Models detected in model and include_grey_box_blocks config option is set to False. "
+                    "Grey Box blocks and their associated constraints will be ignored by the Diagnostics Toolbox, "
+                    "which may lead to structural issues being reported."
+                )
+
     @property
     def model(self):
         """
@@ -662,6 +677,12 @@ class DiagnosticsToolbox:
             None
 
         """
+        if len(greybox_block_set(self._model)) != 0:
+            raise NotImplementedError(
+                "Model contains Greybox models, which are not supported by the "
+                "Infeasibility Explanation tools at the moment"
+            )
+
         if solver is None:
             solver = get_solver("ipopt_v2")
         if stream is None:
@@ -796,7 +817,11 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized()
 
-        jac, nlp = get_jacobian(self._model)
+        jac, nlp = get_jacobian(
+            self._model,
+            include_greybox=self.config.include_grey_box_blocks,
+            include_scaling_factors=self.config.apply_scaling,
+        )
 
         xjc = extreme_jacobian_columns(
             jac=jac,
@@ -832,7 +857,11 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized()
 
-        jac, nlp = get_jacobian(self._model)
+        jac, nlp = get_jacobian(
+            self._model,
+            include_greybox=self.config.include_grey_box_blocks,
+            include_scaling_factors=self.config.apply_scaling,
+        )
 
         xjr = extreme_jacobian_rows(
             jac=jac,
@@ -869,7 +898,11 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized()
 
-        jac, nlp = get_jacobian(self._model, include_scaling_factors=True)
+        jac, nlp = get_jacobian(
+            self._model,
+            include_scaling_factors=self.config.apply_scaling,
+            include_greybox=self.config.include_grey_box_blocks,
+        )
         xje = extreme_jacobian_entries(
             jac,
             nlp,
@@ -908,6 +941,7 @@ class DiagnosticsToolbox:
                 model=self._model,
                 tolerance=self.config.parallel_component_tolerance,
                 direction="row",
+                include_greybox=self.config.include_grey_box_blocks,
             )
         ]
 
@@ -939,6 +973,7 @@ class DiagnosticsToolbox:
                 model=self._model,
                 tolerance=self.config.parallel_component_tolerance,
                 direction="column",
+                include_greybox=self.config.include_grey_box_blocks,
             )
         ]
 
@@ -1096,7 +1131,11 @@ class DiagnosticsToolbox:
                 raise TypeError(
                     f"{constraint.name} is not an instance of a Pyomo Constraint."
                 )
-        sf = get_scaling_factor(constraint, default=1, warning=False) if self.config.apply_scaling else 1
+        sf = (
+            get_scaling_factor(constraint, default=1, warning=False)
+            if self.config.apply_scaling
+            else 1
+        )
 
         # Don't need to scale constraint_term_mismatch_tolerance and
         # constraint_term_cancellation_tolerance because they are both
@@ -1300,7 +1339,11 @@ class DiagnosticsToolbox:
 
         """
         if jac is None or nlp is None:
-            jac, nlp = get_jacobian(self._model)
+            jac, nlp = get_jacobian(
+                self._model,
+                include_greybox=self.config.include_grey_box_blocks,
+                include_scaling_factors=self.config.apply_scaling,
+            )
 
         warnings = []
         next_steps = []
@@ -1418,7 +1461,11 @@ class DiagnosticsToolbox:
 
         """
         if jac is None or nlp is None:
-            jac, nlp = get_jacobian(self._model)
+            jac, nlp = get_jacobian(
+                self._model,
+                include_greybox=self.config.include_grey_box_blocks,
+                include_scaling_factors=self.config.apply_scaling,
+            )
 
         cautions = []
 
@@ -1618,10 +1665,6 @@ class DiagnosticsToolbox:
         """
         # Potential evaluation errors
         # TODO: High Index?
-        if len(greybox_block_set(self._model)) != 0:
-            raise NotImplementedError(
-                "Model contains Greybox models, which are not supported by Diagnostics toolbox at the moment"
-            )
         stats = collect_model_statistics(self._model)
 
         warnings, next_steps = self._collect_structural_warnings()
@@ -1667,7 +1710,11 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized()
 
-        jac, nlp = get_jacobian(self._model)
+        jac, nlp = get_jacobian(
+            self._model,
+            include_greybox=self.config.include_grey_box_blocks,
+            include_scaling_factors=self.config.apply_scaling,
+        )
 
         warnings, next_steps = self._collect_numerical_warnings(jac=jac, nlp=nlp)
         cautions = self._collect_numerical_cautions(jac=jac, nlp=nlp)
