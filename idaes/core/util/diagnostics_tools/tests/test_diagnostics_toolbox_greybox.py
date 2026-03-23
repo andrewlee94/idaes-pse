@@ -495,52 +495,36 @@ Dulmage-Mendelsohn Under-Constrained Set
             b.gb1.inputs[v2]
             b.gb1.outputs[v1]
             b.v2_1
-            b.gb1.outputs[v3]
-            b.gb1.outputs[v4]
             b.gb1.outputs[v7]
             v1_1
-            b.v3_1
-            b.v4_1
             b.v7_1
 
         Constraints:
 
             b.gb1.v1_constraint
             b.gb1_link_v2
-            b.gb1.v3_constraint
-            b.gb1.v4_constraint
             b.gb1.v7_constraint
             b.gb1_link_v1
-            b.gb1_link_v3
-            b.gb1_link_v4
             b.gb1_link_v7
 
     Independent Block 1:
 
         Variables:
 
-            b.gb2.inputs[v7]
-            b.gb2.inputs[v1]
             b.gb2.inputs[v2]
-            b.gb2.inputs[v3]
-            b.gb2.inputs[v4]
-            b.v7_2
-            v1_2
+            b.gb2.inputs[v1]
             b.v2_2
-            b.v3_2
-            b.v4_2
+            v1_2
+            b.gb2.inputs[v7]
+            b.v7_2
 
         Constraints:
 
             b.gb2.c1
-            b.gb2.c2
-            b.gb2.c3
+            b.gb2_link_v2
+            b.gb2_link_v1
             b.gb2.c4
             b.gb2_link_v7
-            b.gb2_link_v1
-            b.gb2_link_v2
-            b.gb2_link_v3
-            b.gb2_link_v4
 
 ====================================================================================
 """
@@ -566,14 +550,12 @@ Dulmage-Mendelsohn Over-Constrained Set
 
         Variables:
 
-            b.gb1.inputs[v2]
             b.gb1.outputs[v4]
             b.gb1.inputs[v5]
             b.gb1.inputs[v6]
 
         Constraints:
 
-            b.gb1_link_v2
             b.gb1_link_v4
             b.gb1_link_v5
             b.gb1_link_v6
@@ -583,24 +565,18 @@ Dulmage-Mendelsohn Over-Constrained Set
 
         Variables:
 
-            b.gb2.inputs[v2]
             b.gb2.inputs[v4]
             b.gb2.inputs[v5]
             b.gb2.inputs[v6]
-            b.gb2.inputs[v1]
             b.gb2.inputs[v3]
-            b.gb2.inputs[v7]
 
         Constraints:
 
-            b.gb2_link_v2
             b.gb2_link_v4
             b.gb2_link_v5
             b.gb2_link_v6
-            b.gb2.c1
             b.gb2.c2
             b.gb2.c3
-            b.gb2.c4
 
 ====================================================================================
 """
@@ -673,7 +649,7 @@ def test_collect_structural_warnings(diagnostics_toolbox):
     assert (
         """WARNING: Structural singularity found
         Under-Constrained Set: 0 variables, 0 constraints
-        Over-Constrained Set: 11 variables, 13 constraints"""
+        Over-Constrained Set: 7 variables, 9 constraints"""
         in warnings
     )
 
@@ -757,7 +733,6 @@ def test_report_structural_issues(diagnostics_toolbox):
     stream = StringIO()
     diagnostics_toolbox.report_structural_issues(stream=stream)
 
-    print(stream.getvalue())
     expected = """====================================================================================
 Model Statistics
 
@@ -782,7 +757,7 @@ Model Statistics
     WARNING: 6 Components with inconsistent units
     WARNING: Structural singularity found
         Under-Constrained Set: 0 variables, 0 constraints
-        Over-Constrained Set: 11 variables, 13 constraints
+        Over-Constrained Set: 7 variables, 9 constraints
 
 ------------------------------------------------------------------------------------
 2 Cautions
