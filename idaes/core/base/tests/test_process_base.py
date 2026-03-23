@@ -161,7 +161,7 @@ Unit : b                                                                   Time:
 
 ====================================================================================
 """
-    print(stream.getvalue())
+
     assert stream.getvalue().strip() == expected.strip()
 
 
