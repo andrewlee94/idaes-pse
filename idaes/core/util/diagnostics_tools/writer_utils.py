@@ -47,11 +47,19 @@ TAB = " " * 4
 
 # TODO: This appears to duplicate much of the functionality in
 # model_statistics.report_statistics
-def collect_model_statistics(model):
+def collect_model_statistics(model, include_greybox=True):
     """
-    Collects statistics about the model that are relevant for diagnostics tools.
+    Collect general statistics about the model, and format into a readable report.
+
+    Args:
+        model: Pyomo model to be studied
+        include_greybox: Boolean to include implicit constraints from GreyBox
+            models (default = True)
+    
+    Returns:
+        List of strings containing model statistics, formatted for display
     """
-    vars_in_constraints = variables_in_activated_constraints_set(model)
+    vars_in_constraints = variables_in_activated_constraints_set(model, include_greybox=include_greybox)
     fixed_vars_in_constraints = ComponentSet()
     free_vars_in_constraints = ComponentSet()
     free_vars_lb = ComponentSet()
@@ -100,8 +108,8 @@ def collect_model_statistics(model):
         f"(External: {len(ext_fixed_vars_in_constraints)})"
     )
     stats.append(
-        f"{TAB}Activated Equality Constraints: {len(activated_equalities_set(model))+number_activated_greybox_equalities(model)} "
-        f"(Deactivated: {len(deactivated_equalities_set(model))+number_deactivated_greybox_equalities(model)})"
+        f"{TAB}Activated Equality Constraints: {len(activated_equalities_set(model, include_greybox=include_greybox))} "
+        f"(Deactivated: {len(deactivated_equalities_set(model, include_greybox=include_greybox))})"
     )
     stats.append(
         f"{TAB}Activated Inequality Constraints: {len(activated_inequalities_set(model))} "

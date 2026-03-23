@@ -1137,8 +1137,12 @@ def test_degrees_of_freedom_with_graybox():
 
     m = ConcreteModel()
 
-    m.gb = ExternalGreyBoxBlock(external_model=BasicGrayBox())
-    m.gb_inactive = ExternalGreyBoxBlock(external_model=BasicGrayBox())
+    m.gb = ExternalGreyBoxBlock(
+        external_model=BasicGrayBox(), build_implicit_constraint_objects=True
+    )
+    m.gb_inactive = ExternalGreyBoxBlock(
+        external_model=BasicGrayBox(), build_implicit_constraint_objects=True
+    )
     m.gb_inactive.deactivate()
     # test counting functions
     assert number_greybox_blocks(m) == 2
@@ -1170,7 +1174,9 @@ def test_degrees_of_freedom_with_graybox():
     assert degrees_of_freedom(m) == -1
     assert number_variables_in_activated_constraints(m) == 7
     assert number_total_constraints(m) == 5
-    assert number_total_equalities(m) == 5
+    # Total number of equalities = 8: 3 in each grey box plus 2 others
+    # Previous test value was incorrect - probably overlooked deactivated grey box
+    assert number_total_equalities(m) == 8
     assert number_deactivated_equalities(m) == 3
     assert number_deactivated_constraints(m) == 3
 
