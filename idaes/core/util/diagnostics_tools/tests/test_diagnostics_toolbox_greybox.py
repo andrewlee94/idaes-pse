@@ -13,6 +13,7 @@
 """
 This module contains tests for the Diagnostics Toolbox using ExternalGreyBox models.
 """
+
 from io import StringIO
 import logging
 import re
@@ -39,7 +40,6 @@ from pyomo.environ import (
 from idaes.core.util.diagnostics_tools.diagnostics_toolbox import (
     DiagnosticsToolbox,
 )
-
 
 logging.getLogger("cyipopt").setLevel(logging.WARNING)
 
@@ -646,12 +646,9 @@ def test_collect_structural_warnings(diagnostics_toolbox):
     assert len(warnings) == 3
     assert "WARNING: -2 Degrees of Freedom" in warnings
     assert "WARNING: 6 Components with inconsistent units" in warnings
-    assert (
-        """WARNING: Structural singularity found
+    assert """WARNING: Structural singularity found
         Under-Constrained Set: 0 variables, 0 constraints
-        Over-Constrained Set: 7 variables, 9 constraints"""
-        in warnings
-    )
+        Over-Constrained Set: 7 variables, 9 constraints""" in warnings
 
     assert len(next_steps) == 2
     assert "display_components_with_inconsistent_units()" in next_steps
