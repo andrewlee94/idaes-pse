@@ -1419,10 +1419,12 @@ def _get_jacobian_greybox_compatible(
         con_sf_all = np.ones(len(clist_all), dtype=float)
         for i, con in enumerate(clist_all):
             if isinstance(con, tuple):
-                # Grey box constraints show up as tuples
+                # Implicit Grey box constraints show up as tuples
                 # Do NOT scale grey-box constraints
                 con_sf_all[i] = 1.0
             else:
+                # ExternalGreyBoxConstraints will go down this path and be handled
+                # by get_scaling_factor
                 con_sf_all[i] = get_scaling_factor(con, default=1, warning=False)
 
         con_sf = con_sf_all if eq_rows is None else con_sf_all[eq_rows]
@@ -1447,7 +1449,7 @@ def _get_jacobian_greybox_compatible(
 
 # TODO should we calculate the 2-norm condition number from the SVD
 # once #1566 is merged?
-def jacobian_cond(m=None, scaled=True, jac=None):
+def jacobian_cond(m=None, scaled=True, jac=None, include_greybox=False):
     """
     Get the Frobenius condition number of the scaled or unscaled Jacobian matrix
     of a model.
@@ -1456,6 +1458,7 @@ def jacobian_cond(m=None, scaled=True, jac=None):
         m: calculate the condition number of the Jacobian from this model.
         scaled: if True use scaled Jacobian, else use unscaled
         jac: (optional) previously calculated Jacobian
+        include_greybox: if True, include grey-box variables and constraints in the Jacobian and condition number calculation
 
     Returns:
         (float) Condition number
@@ -1466,7 +1469,7 @@ def jacobian_cond(m=None, scaled=True, jac=None):
                 "User must provide either a Pyomo model or a Jacobian "
                 "to calculate the condition number."
             )
-        jac, _ = get_jacobian(m, scaled)
+        jac, _ = get_jacobian(m, scaled, include_greybox=include_greybox)
     jac = jac.tocsc()
     if jac.shape[0] != jac.shape[1]:
         _log.info(
