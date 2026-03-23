@@ -1373,3 +1373,224 @@ def test_number_active_variables_in_deactivated_blocks(m):
 @pytest.mark.unit
 def test_report_statistics(m):
     report_statistics(m)
+
+
+@pytest.mark.unit
+def test_external_variables_set(m):
+    m.b2["b"].cons_w_ext_var = Constraint(expr=m.b1.v1 == m.b2["b"].v1)
+
+    assert len(external_variables_set(m)) == 0
+    ext_vars = external_variables_set(m.b2)
+    assert len(ext_vars) == 1
+    assert m.b1.v1 in ext_vars
+
+
+@pytest.mark.unit
+def test_number_external_variables(m):
+    m.b2["b"].cons_w_ext_var = Constraint(expr=m.b1.v1 == m.b2["b"].v1)
+
+    assert number_external_variables(m) == 0
+    assert number_external_variables(m.b2) == 1
+
+
+# -------------------------------------------------------------------------
+# Legacy tests for functions moved from model_diagnostics to model_statistics
+class TestLegacyDiagnostics:
+    @pytest.fixture
+    def model(self):
+        m = ConcreteModel()
+        m.b = Block()
+
+        m.v1 = Var()
+        m.v2 = Var()
+        m.v3 = Var()
+        m.v4 = Var()
+
+        m.v1.fix(0)
+        m.v2.fix(3)
+        m.v3.set_value(0)
+
+        return m
+
+    @pytest.mark.unit
+    def test_vars_fixed_to_zero(self, model):
+        zero_vars = variables_fixed_to_zero_set(model)
+        assert isinstance(zero_vars, ComponentSet)
+        assert len(zero_vars) == 1
+        for i in zero_vars:
+            assert i is model.v1
+
+
+    @pytest.mark.unit
+    def test_vars_near_zero(self, model):
+        model.v3.set_value(1e-5)
+
+        near_zero_vars = variables_near_zero_set(model, tol=1e-5)
+        assert isinstance(near_zero_vars, ComponentSet)
+        assert len(near_zero_vars) == 2
+        for i in near_zero_vars:
+            assert i.local_name in ["v1", "v3"]
+
+        near_zero_vars = variables_near_zero_set(model, tol=1e-6)
+        assert isinstance(near_zero_vars, ComponentSet)
+        assert len(near_zero_vars) == 1
+        for i in near_zero_vars:
+            assert i is model.v1
+
+        set_scaling_factor(model.v3, 1e5)
+        near_zero_vars = variables_near_zero_set(model, tol=1e-5)
+        assert isinstance(near_zero_vars, ComponentSet)
+        assert len(near_zero_vars) == 1
+        for i in near_zero_vars:
+            assert i is model.v1
+
+        near_zero_vars = variables_near_zero_set(model, tol=1)
+        assert isinstance(near_zero_vars, ComponentSet)
+        assert len(near_zero_vars) == 2
+        for i in near_zero_vars:
+            assert i.local_name in ["v1", "v3"]
+
+
+    @pytest.mark.unit
+    def test_vars_with_none_value(self, model):
+        none_value = variables_with_none_value_set(model)
+
+        assert isinstance(none_value, ComponentSet)
+        assert len(none_value) == 1
+        for i in none_value:
+            assert i is model.v4
+
+
+    @pytest.mark.unit
+    def test_vars_with_bounds_issues(self, model):
+        model.v1.setlb(2)
+        model.v1.setub(6)
+        model.v2.setlb(0)
+        model.v2.setub(10)
+        model.v4.set_value(10)
+        model.v4.setlb(0)
+        model.v4.setub(1)
+
+        bounds_issue = variables_violating_bounds_set(model, abs_tol=0, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 2
+        for i in bounds_issue:
+            assert i.local_name in ["v1", "v4"]
+
+        m = ConcreteModel()
+        m.v = Var(initialize=-1e-4, bounds=(0, 1))
+
+        # Just outside lower bound
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 1
+
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e-10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 1
+
+        # Just inside lower bound
+        m.v.set_value(1e-4)
+
+        set_scaling_factor(m.v, 1, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e-10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        # Just inside upper bound
+        m.v.set_value(1 - 1e-4)
+
+        set_scaling_factor(m.v, 1, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e-10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        # Just outside upper bound
+        m.v.set_value(1 + 1e-4)
+
+        set_scaling_factor(m.v, 1, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 1
+
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e-10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e3, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 0
+
+        set_scaling_factor(m.v, 1e10, overwrite=True)
+        bounds_issue = variables_violating_bounds_set(m, abs_tol=1e-6, rel_tol=0)
+        assert isinstance(bounds_issue, ComponentSet)
+        assert len(bounds_issue) == 1
+
+
+    @pytest.mark.unit
+    def test_vars_with_extreme_values(self):
+        m = ConcreteModel()
+        m.v1 = Var(initialize=1e-12)  # below zero
+        m.v2 = Var(initialize=1e-8)  # small
+        m.v3 = Var(initialize=1e-4)
+        m.v4 = Var(initialize=1e0)
+        m.v5 = Var(initialize=1e4)
+        m.v6 = Var(initialize=1e8)
+        m.v7 = Var(initialize=1e12)  # large
+
+        xvars = variables_with_extreme_values_set(m, large=1e9, small=1e-7, zero=1e-10)
+
+        assert len(xvars) == 2
+        for i in xvars:
+            assert i.name in ["v2", "v7"]
+
+        set_scaling_factor(m.v1, 1e3)
+        set_scaling_factor(m.v2, 1e6)
+        set_scaling_factor(m.v4, 1e-12)
+        set_scaling_factor(m.v6, 1e3)
+        set_scaling_factor(m.v7, 1e-12)
+
+        xvars = variables_with_extreme_values_set(m, large=1e9, small=1e-7, zero=1e-10)
+
+        assert len(xvars) == 2
+        for i in xvars:
+            assert i.name in ["v1", "v6"]

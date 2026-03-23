@@ -17,6 +17,8 @@ This module contains utility functions for reporting model diagnostics.
 
 __author__ = "Alexander Dowling, Douglas Allan, Andrew Lee, Robby Parker, Ben Knueven"
 
+from sys import stdout
+
 from pyomo.common.collections import ComponentSet
 
 from idaes.core.util.model_statistics import (
@@ -37,12 +39,18 @@ from idaes.core.util.model_statistics import (
     unfixed_greybox_variables,
     greybox_variables,
 )
-from idaes.core.util.diagnostics_tools.utils import (
-    var_in_block,
-)
 
 MAX_STR_LENGTH = 84
 TAB = " " * 4
+
+
+def _var_in_block(var, block):
+    parent = var.parent_block()
+    while parent is not None:
+        if parent is block:
+            return True
+        parent = parent.parent_block()
+    return False
 
 
 # TODO: This appears to duplicate much of the functionality in
@@ -70,11 +78,11 @@ def collect_model_statistics(model, include_greybox=True):
     for v in vars_in_constraints:
         if v.fixed:
             fixed_vars_in_constraints.add(v)
-            if not var_in_block(v, model):
+            if not _var_in_block(v, model):
                 ext_fixed_vars_in_constraints.add(v)
         else:
             free_vars_in_constraints.add(v)
-            if not var_in_block(v, model):
+            if not _var_in_block(v, model):
                 ext_free_vars_in_constraints.add(v)
             if v.lb is not None:
                 if v.ub is not None:
@@ -163,6 +171,9 @@ def write_report_section(
         None
 
     """
+    if stream is None:
+        stream = stdout
+
     stream.write(f"{header * MAX_STR_LENGTH}\n")
     if title is not None:
         stream.write(f"{title}\n\n")

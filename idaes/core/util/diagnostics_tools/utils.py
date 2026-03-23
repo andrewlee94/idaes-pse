@@ -21,10 +21,10 @@ import numpy as np
 from scipy.sparse.linalg import norm
 
 from pyomo.environ import (
+    ComponentSet,
     value,
     Var,
 )
-from pyomo.common.collections import ComponentSet
 
 from idaes.core.scaling.util import (
     get_jacobian,

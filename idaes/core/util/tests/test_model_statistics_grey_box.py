@@ -2250,3 +2250,22 @@ def test_number_variables_with_none_value_in_activated_equalities_w_grey_box(mod
         )
         == 10
     )
+
+
+@pytest.mark.unit
+def test_external_variables_set_w_grey_box(model):
+    # Add a constraint on b2 that points to a Var in EGB
+    model.b2.cons_w_ext_var = Constraint(expr=model.b1.egb.inputs["Pin"] == model.b2.v1)
+
+    assert len(external_variables_set(model)) == 0
+    ext_vars = external_variables_set(model.b2)
+    assert len(ext_vars) == 1
+    assert model.b1.egb.inputs["Pin"] in ext_vars
+
+
+@pytest.mark.unit
+def test_number_external_variables_w_grey_box(model):
+    model.b2.cons_w_ext_var = Constraint(expr=model.b1.egb.inputs["Pin"] == model.b2.v1)
+
+    assert number_external_variables(model) == 0
+    assert number_external_variables(model.b2) == 1

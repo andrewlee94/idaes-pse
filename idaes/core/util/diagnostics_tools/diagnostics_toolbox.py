@@ -44,13 +44,18 @@ from pyomo.contrib.iis import mis
 from idaes.core.solvers.get_solver import get_solver
 from idaes.core.util.misc import compact_expression_to_string
 from idaes.core.util.model_statistics import (
-    variables_in_activated_constraints_set,
     variables_not_in_activated_constraints_set,
     variables_with_none_value_in_activated_equalities_set,
     greybox_block_set,
     degrees_of_freedom,
     large_residuals_set,
     variables_near_bounds_set,
+    external_variables_set,
+    variables_fixed_to_zero_set,
+    variables_near_zero_set,
+    variables_with_none_value_set,
+    variables_violating_bounds_set,
+    variables_with_extreme_values_set,
 )
 from idaes.core.scaling.util import (
     get_jacobian,
@@ -80,12 +85,6 @@ from idaes.core.util.diagnostics_tools.utils import (
     extreme_jacobian_columns,
     extreme_jacobian_rows,
     extreme_jacobian_entries,
-    var_in_block,
-    vars_fixed_to_zero,
-    vars_near_zero,
-    vars_violating_bounds,
-    vars_with_none_value,
-    vars_with_extreme_values,
 )
 
 _log = idaeslog.getLogger(__name__)
@@ -105,6 +104,7 @@ CONFIG.declare(
     ),
 )
 # TODO is a relative tolerance necessary if we're including scaling?
+# AL: Yes, as you cannot guarantee a user will provide good scaling
 CONFIG.declare(
     "variable_bounds_relative_tolerance",
     ConfigValue(
@@ -245,6 +245,26 @@ CONFIG.declare(
         description="Feasibility tolerance for identifying infeasible constraints and bounds",
     ),
 )
+CONFIG.declare(
+    "include_grey_box_blocks",
+    ConfigValue(
+        default=True,
+        domain=bool,
+        description="Whether to include grey-box blocks in diagnostics checks. "
+        "Excluding Grey Box can reduce overhead for computing diagnostics, "
+        "but will result in apparent structural issues as the implicit "
+        "constraints will not be included in the analysis.",
+    ),
+)
+CONFIG.declare(
+    "apply_scaling",
+    ConfigValue(
+        default=True,
+        domain=bool,
+        description="Whether to apply scaling factors when evaluating diagnostics. "
+        " If True, any scaling factors present will be applied."
+    ),
+)
 
 
 @document_kwargs_from_configdict(CONFIG)
@@ -300,10 +320,7 @@ class DiagnosticsToolbox:
                 "model argument must be an instance of a Pyomo BlockData object "
                 "(either a scalar Block or an element of an indexed Block)."
             )
-        if len(greybox_block_set(model)) != 0:
-            raise NotImplementedError(
-                "Model contains Greybox models, which are not supported by Diagnostics toolbox at the moment"
-            )
+
         self._model = model
         self.config = CONFIG(kwargs)
 
@@ -326,17 +343,9 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
-        ext_vars = []
-        for v in variables_in_activated_constraints_set(self._model):
-            if not var_in_block(v, self._model):
-                ext_vars.append(v.name)
-
         write_report_section(
             stream=stream,
-            lines_list=ext_vars,
+            lines_list=external_variables_set(self._model, include_greybox=self.config.include_grey_box_blocks),
             title="The following external variable(s) appear in constraints within the model:",
             header="=",
             footer="=",
@@ -353,12 +362,9 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
-            lines_list=variables_not_in_activated_constraints_set(self._model),
+            lines_list=variables_not_in_activated_constraints_set(self._model, include_greybox=self.config.include_grey_box_blocks),
             title="The following variable(s) do not appear in any activated constraints within the model:",
             header="=",
             footer="=",
@@ -375,12 +381,9 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
-            lines_list=vars_fixed_to_zero(self._model),
+            lines_list=variables_fixed_to_zero_set(self._model, include_greybox=self.config.include_grey_box_blocks),
             title="The following variable(s) are fixed to zero:",
             header="=",
             footer="=",
@@ -398,16 +401,16 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=[
                 f"{v.name} ({'fixed' if v.fixed else 'free'}): value={value(v)} bounds={v.bounds}"
-                for v in vars_violating_bounds(
+                for v in variables_violating_bounds_set(
                     self._model,
-                    tolerance=self.config.variable_bounds_violation_tolerance,
+                    abs_tol=self.config.variable_bounds_violation_tolerance,
+                    rel_tol=0.0,  # For backward compatibility
+                    include_greybox=self.config.include_grey_box_blocks,
+                    apply_scaling=self.config.apply_scaling,
                 )
             ],
             title="The following variable(s) have values at or outside their bounds "
@@ -427,12 +430,9 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
-            lines_list=vars_with_none_value(self._model),
+            lines_list=variables_with_none_value_set(self._model),
             title="The following variable(s) have a value of None:",
             header="=",
             footer="=",
@@ -451,9 +451,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=[
@@ -499,15 +496,15 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=[
                 f"{v.name}: value={value(v)}"
-                for v in vars_near_zero(
-                    self._model, self.config.variable_zero_value_tolerance
+                for v in variables_near_zero_set(
+                    self._model,
+                    tol=self.config.variable_zero_value_tolerance,
+                    include_greybox=self.config.include_grey_box_blocks,
+                    scale_variables=self.config.apply_scaling,
                 )
             ],
             title=f"The following variable(s) have a value close to zero "
@@ -529,18 +526,17 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=[
                 f"{i.name}: {value(i)}"
-                for i in vars_with_extreme_values(
-                    model=self._model,
+                for i in variables_with_extreme_values_set(
+                    block=self._model,
                     large=self.config.variable_large_value_tolerance,
                     small=self.config.variable_small_value_tolerance,
                     zero=self.config.variable_zero_value_tolerance,
+                    include_greybox=self.config.include_grey_box_blocks,
+                    apply_scaling=self.config.apply_scaling,
                 )
             ],
             title=f"The following variable(s) have extreme values "
@@ -562,9 +558,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=[
@@ -594,9 +587,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         write_report_section(
             stream=stream,
             lines_list=identify_inconsistent_units(self._model),
@@ -619,9 +609,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         lrdict = large_residuals_set(
             self._model,
             tol=self.config.constraint_residual_tolerance,
@@ -799,9 +786,6 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
-
         jac, nlp = get_jacobian(self._model)
 
         xjc = extreme_jacobian_columns(
@@ -837,9 +821,6 @@ class DiagnosticsToolbox:
 
         """
         self._verify_active_variables_initialized(stream=stream)
-
-        if stream is None:
-            stream = sys.stdout
 
         jac, nlp = get_jacobian(self._model)
 
@@ -878,9 +859,6 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
-
         jac, nlp = get_jacobian(self._model, include_scaling_factors=True)
         xje = extreme_jacobian_entries(
             jac,
@@ -914,9 +892,6 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
-
         parallel = [
             f"{i[0].name}, {i[1].name}"
             for i in check_parallel_jacobian(
@@ -947,9 +922,6 @@ class DiagnosticsToolbox:
 
         """
         self._verify_active_variables_initialized(stream=stream)
-
-        if stream is None:
-            stream = sys.stdout
 
         parallel = [
             f"{i[0].name}, {i[1].name}"
@@ -1033,9 +1005,6 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
-
         mismatch, _, _ = self._collect_constraint_mismatches()
 
         # Write the output
@@ -1067,9 +1036,6 @@ class DiagnosticsToolbox:
 
         """
         self._verify_active_variables_initialized(stream=stream)
-
-        if stream is None:
-            stream = sys.stdout
 
         _, canceling, _ = self._collect_constraint_mismatches()
 
@@ -1107,9 +1073,6 @@ class DiagnosticsToolbox:
 
         """
         self._verify_active_variables_initialized(stream=stream)
-
-        if stream is None:
-            stream = sys.stdout
 
         # Check that constraint is of correct type to give useful error message
         if not isinstance(constraint, ConstraintData):
@@ -1207,9 +1170,6 @@ class DiagnosticsToolbox:
         # implementation does.
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
-
         _, _, constant = self._collect_constraint_mismatches()
 
         # Write the output
@@ -1295,7 +1255,7 @@ class DiagnosticsToolbox:
         """
         # Collect cautions
         cautions = []
-        zero_vars = vars_fixed_to_zero(self._model)
+        zero_vars = variables_fixed_to_zero_set(self._model, include_greybox=self.config.include_grey_box_blocks)
         if len(zero_vars) > 0:
             vstring = "variables"
             if len(zero_vars) == 1:
@@ -1355,8 +1315,12 @@ class DiagnosticsToolbox:
             next_steps.append(self.compute_infeasibility_explanation.__name__ + "()")
 
         # Variables outside bounds
-        violated_bounds = vars_violating_bounds(
-            self._model, tolerance=self.config.variable_bounds_violation_tolerance
+        violated_bounds = variables_violating_bounds_set(
+            self._model,
+            abs_tol=self.config.variable_bounds_violation_tolerance,
+            rel_tol=0.0,  # For backward compatibility
+            include_greybox=self.config.include_grey_box_blocks,
+            apply_scaling=self.config.apply_scaling,
         )
         if len(violated_bounds) > 0:
             cstring = "Variables"
@@ -1467,8 +1431,11 @@ class DiagnosticsToolbox:
             )
 
         # Variables near zero
-        near_zero = vars_near_zero(
-            self._model, self.config.variable_zero_value_tolerance
+        near_zero = variables_near_zero_set(
+            self._model,
+            tol=self.config.variable_zero_value_tolerance,
+            include_greybox=self.config.include_grey_box_blocks,
+            scale_variables=self.config.apply_scaling,
         )
         if len(near_zero) > 0:
             cstring = "Variables"
@@ -1480,11 +1447,13 @@ class DiagnosticsToolbox:
             )
 
         # Variables with extreme values
-        xval = vars_with_extreme_values(
-            model=self._model,
+        xval = variables_with_extreme_values_set(
+            block=self._model,
             large=self.config.variable_large_value_tolerance,
             small=self.config.variable_small_value_tolerance,
             zero=self.config.variable_zero_value_tolerance,
+            include_greybox=self.config.include_grey_box_blocks,
+            apply_scaling=self.config.apply_scaling,
         )
         if len(xval) > 0:
             cstring = "Variables"
@@ -1497,7 +1466,7 @@ class DiagnosticsToolbox:
             )
 
         # Variables with value None
-        none_value = vars_with_none_value(self._model)
+        none_value = variables_with_none_value_set(self._model, include_greybox=self.config.include_grey_box_blocks)
         if len(none_value) > 0:
             cstring = "Variables"
             if len(none_value) == 1:
@@ -1637,9 +1606,6 @@ class DiagnosticsToolbox:
             None
 
         """
-        if stream is None:
-            stream = sys.stdout
-
         # Potential evaluation errors
         # TODO: High Index?
         if len(greybox_block_set(self._model)) != 0:
@@ -1691,8 +1657,6 @@ class DiagnosticsToolbox:
         """
         self._verify_active_variables_initialized(stream=stream)
 
-        if stream is None:
-            stream = sys.stdout
         jac, nlp = get_jacobian(self._model)
 
         warnings, next_steps = self._collect_numerical_warnings(jac=jac, nlp=nlp)
@@ -1766,9 +1730,6 @@ class DiagnosticsToolbox:
         Returns:
             None
         """
-        if stream is None:
-            stream = sys.stdout
-
         warnings = self._collect_potential_eval_errors()
         write_report_section(
             stream=stream,
