@@ -68,7 +68,9 @@ from pyomo.contrib.pynumero.interfaces.pyomo_grey_box_nlp import (
     PyomoNLPWithGreyBoxBlocks,
 )
 from pyomo.contrib.pynumero.interfaces.external_grey_box import ExternalGreyBoxBlockData
-from pyomo.contrib.pynumero.interfaces.external_grey_box_constraint import ExternalGreyBoxConstraint
+from pyomo.contrib.pynumero.interfaces.external_grey_box_constraint import (
+    ExternalGreyBoxConstraint,
+)
 
 from idaes.core.util.exceptions import BurntToast
 import idaes.logger as idaeslog
@@ -1203,7 +1205,9 @@ def get_jacobian(
             )
         except ValueError as err:
             # If we get a ValueError check to see if it is because of unrecognized components
-            if "contains the following active components that the NL writer " in str(err):
+            if "contains the following active components that the NL writer " in str(
+                err
+            ):
                 raise ValueError(
                     "The model contains components that are not supported by the Pyomo NL writer. "
                     "This may be because the model contains a grey-box model. If you want to include "
@@ -1230,11 +1234,11 @@ def get_jacobian(
 
 def _get_jacobian_legacy_pyomonlp(
     m,
-    include_scaling_factors: bool=True,
-    include_ipopt_autoscaling: bool=False,
-    equality_constraints_only: bool=False,
-    max_grad: float=100.0,
-    min_scale: float=1e-8,
+    include_scaling_factors: bool = True,
+    include_ipopt_autoscaling: bool = False,
+    equality_constraints_only: bool = False,
+    max_grad: float = 100.0,
+    min_scale: float = 1e-8,
 ):
     """
     Get the Jacobian matrix at the current model values. This function also
@@ -1327,8 +1331,8 @@ def _get_jacobian_greybox_compatible(
       - Works for models without any grey-box blocks and should match legacy results
         *except* for any differences in ordering introduced by PyomoNLPWithGreyBoxBlocks
         (your tests will reveal whether ordering is identical).
-    
-        
+
+
     Args:
         m: model to get Jacobian from
         include_scaling_factors: if True scale the rows and columns of the Jacobian

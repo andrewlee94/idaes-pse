@@ -69,7 +69,9 @@ from idaes.core.util.model_statistics import number_activated_objectives
 from idaes.core.util.scaling import get_constraint_transform_applied_scaling_factor
 import idaes.logger as idaeslog
 
-from idaes.core.util.diagnostics_tools.tests.test_diagnostics_toolbox_greybox import ResidualGrayBox
+from idaes.core.util.diagnostics_tools.tests.test_diagnostics_toolbox_greybox import (
+    ResidualGrayBox,
+)
 
 currdir = this_file_dir()
 
@@ -1783,7 +1785,7 @@ class TestGetScalingFactor:
         m.scaling_factor[m.v] = 17
         m.scaling_factor.deactivate()
         assert get_scaling_factor(m.v) is None
-    
+
     @pytest.mark.unit
     def test_get_scaling_factor_egb_constraint(self):
         m = ConcreteModel()
@@ -1796,7 +1798,7 @@ class TestGetScalingFactor:
 
         # Test with default value
         assert get_scaling_factor(m.gb.c1, default=42.0) == 42.0
-        
+
 
 class TestSetScalingFactor:
     @pytest.mark.unit
@@ -2463,7 +2465,9 @@ class TestJacobianMethods:
         set_scaling_factor(m.x, 1e-3)
         set_scaling_factor(m.y, 1e-6)
         set_scaling_factor(m.z, 1e-4)
-        jac, _ = get_jacobian(m, include_scaling_factors=False, include_greybox=include_greybox)
+        jac, _ = get_jacobian(
+            m, include_scaling_factors=False, include_greybox=include_greybox
+        )
         assert len(m.scaling_factor) == 4
         assert not hasattr(m, "scaling_hint")
         assert jac[c1_row, x_col] == pytest.approx(-1e6)
@@ -2791,7 +2795,7 @@ class TestJacobianMethodsGreyBox:
         m.gb_link_v7 = Constraint(expr=m.gb.inputs["v7"] == m.v7)
 
         return m
-    
+
     @pytest.mark.unit
     def test_get_jacobian_include_greybox_false(self, model):
         with pytest.raises(
@@ -2808,7 +2812,7 @@ class TestJacobianMethodsGreyBox:
         jac, nlp = get_jacobian(model, include_greybox=True)
 
         assert jac.shape == (11, 14)
-        
+
         expected = {
             ("gb_link_v1", "v1"): 1.0,
             ("gb_link_v1", "gb.inputs[v1]"): -1.0,
@@ -2841,17 +2845,21 @@ class TestJacobianMethodsGreyBox:
             for j in range(14):
                 col = nlp.primals_names()[j]
                 row = nlp.constraint_names()[i]
-                assert jac[i, j] == pytest.approx(expected.get((row, col), 0.0), rel=1e-6, abs=1e-12)
+                assert jac[i, j] == pytest.approx(
+                    expected.get((row, col), 0.0), rel=1e-6, abs=1e-12
+                )
 
     @pytest.mark.unit
     def test_get_jacobian_w_scaling(self, model):
         model.scaling_factor = Suffix(direction=Suffix.EXPORT)
         model.scaling_factor[model.v7] = 1e7
 
-        jac, nlp = get_jacobian(model, include_greybox=True, include_scaling_factors=True)
+        jac, nlp = get_jacobian(
+            model, include_greybox=True, include_scaling_factors=True
+        )
 
         assert jac.shape == (11, 14)
-        
+
         expected = {
             ("gb_link_v1", "v1"): 1.0,
             ("gb_link_v1", "gb.inputs[v1]"): -1.0,
@@ -2885,15 +2893,18 @@ class TestJacobianMethodsGreyBox:
                 col = nlp.primals_names()[j]
                 row = nlp.constraint_names()[i]
                 print(row, col, jac[i, j])
-                assert jac[i, j] == pytest.approx(expected.get((row, col), 0.0), rel=1e-6, abs=1e-12)
-
+                assert jac[i, j] == pytest.approx(
+                    expected.get((row, col), 0.0), rel=1e-6, abs=1e-12
+                )
 
     @pytest.mark.unit
     def test_get_jacobian_include_ipopt_autoscaling(self, model):
-        jac, nlp = get_jacobian(model, include_greybox=True, include_ipopt_autoscaling=True)
+        jac, nlp = get_jacobian(
+            model, include_greybox=True, include_ipopt_autoscaling=True
+        )
 
         assert jac.shape == (11, 14)
-        
+
         expected = {
             ("gb_link_v1", "v1"): 1.0,
             ("gb_link_v1", "gb.inputs[v1]"): -1.0,
@@ -2926,4 +2937,6 @@ class TestJacobianMethodsGreyBox:
             for j in range(14):
                 col = nlp.primals_names()[j]
                 row = nlp.constraint_names()[i]
-                assert jac[i, j] == pytest.approx(expected.get((row, col), 0.0), rel=1e-6, abs=1e-12)
+                assert jac[i, j] == pytest.approx(
+                    expected.get((row, col), 0.0), rel=1e-6, abs=1e-12
+                )

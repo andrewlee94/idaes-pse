@@ -2461,7 +2461,7 @@ def activated_block_component_generator(block, ctype, include_greybox=False):
         for c in b.component_data_objects(ctype=ctype, active=None, descend_into=False):
             yield c
 
-    # If inlcude_greybox is True, also yield components in active greybox sub-blocks
+    # If include_greybox is True, also yield components in active greybox sub-blocks
     if include_greybox:
         for b in _iter_indexed_block_data_objects(
             block, ctype=ExternalGreyBoxBlock, active=True, descend_into=True

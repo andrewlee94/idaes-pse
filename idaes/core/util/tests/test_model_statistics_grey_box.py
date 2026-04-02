@@ -2103,7 +2103,7 @@ def test_large_residuals_set(model):
     model.b1.Pout.set_value(1e5)
     model.b1.egb.outputs["Pout"].set_value(1e5)
 
-    # Set b2.v1 to a vlaue that should violate both equality and inequality constraints
+    # Set b2.v1 to a value that should violate both equality and inequality constraints
     model.b2.v1.set_value(-1)
 
     # Set input values inside the grey box
@@ -2192,7 +2192,7 @@ def test_large_residuals_set_w_value_w_grey_box(model):
     model.b1.Pout.set_value(1e5)
     model.b1.egb.outputs["Pout"].set_value(1e5)
 
-    # Set b2.v1 to a vlaue that should violate both equality and inequality constraints
+    # Set b2.v1 to a value that should violate both equality and inequality constraints
     model.b2.v1.set_value(-1)
 
     # Set input values inside the grey box
@@ -2247,7 +2247,7 @@ def test_number_large_residuals_w_value_w_grey_box(model):
     model.b1.Pout.set_value(1e5)
     model.b1.egb.outputs["Pout"].set_value(1e5)
 
-    # Set b2.v1 to a vlaue that should violate both equality and inequality constraints
+    # Set b2.v1 to a value that should violate both equality and inequality constraints
     model.b2.v1.set_value(-1)
 
     # Set input values inside the grey box

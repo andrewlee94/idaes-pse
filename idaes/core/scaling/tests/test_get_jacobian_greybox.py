@@ -15,11 +15,19 @@ Tests for scaling utility functions.
 
 Author: Andrew Lee, Douglas Allan
 """
+
 import re
 
 import pytest
 
-from pyomo.environ import assert_optimal_termination, Constraint, ConcreteModel, SolverFactory, Suffix, Var
+from pyomo.environ import (
+    assert_optimal_termination,
+    Constraint,
+    ConcreteModel,
+    SolverFactory,
+    Suffix,
+    Var,
+)
 from pyomo.contrib.pynumero.asl import AmplInterface
 from pyomo.contrib.pynumero.interfaces.external_grey_box import ExternalGreyBoxBlock
 import pyomo.contrib.pynumero.interfaces.tests.external_grey_box_models as ex_models
@@ -63,7 +71,7 @@ def test_get_jacobian_greybox_error_with_egb_constraints():
         match="The model contains components that are not supported by the Pyomo NL writer. "
         "This may be because the model contains a grey-box model. If you want to include "
         "grey-box variables and constraints in the Jacobian, set "
-        "include_greybox=True when calling get_jacobian."
+        "include_greybox=True when calling get_jacobian.",
     ):
         get_jacobian(m, include_greybox=False)
 
@@ -336,7 +344,7 @@ class TestJacobianMethodsWithGreyBox:
         jac, nlp = _get_jacobian_greybox_compatible(m, include_scaling_factors=False)
         assert not hasattr(m, "scaling_factor")
         assert not hasattr(m, "scaling_hint")
-        
+
         expected_jac = {
             ("link_P_in", "egb.inputs[Pin]"): -1.0,
             ("link_c", "egb.inputs[c]"): -1.0,
@@ -345,7 +353,7 @@ class TestJacobianMethodsWithGreyBox:
             ("link_P_out", "egb.outputs[Pout]"): -1.0,
             ("egb.Pout_constraint", "egb.inputs[Pin]"): 1.0,
             ("egb.Pout_constraint", "egb.inputs[c]"): -1.0,  # -4*0.5**2
-            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
+            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0,  # -4*1e5*2*0.5
             ("egb.Pout_constraint", "egb.outputs[Pout]"): -1.0,
         }
 
@@ -355,7 +363,9 @@ class TestJacobianMethodsWithGreyBox:
             if (nlp.constraint_names()[i], nlp.primals_names()[j]) not in expected_jac:
                 assert val == 0
             else:
-                assert val == pytest.approx(expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]])
+                assert val == pytest.approx(
+                    expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]]
+                )
 
         # Make sure scaling factors don't affect the result
         set_scaling_factor(m.link_P_in, 1e-5)
@@ -377,12 +387,13 @@ class TestJacobianMethodsWithGreyBox:
             if (nlp.constraint_names()[i], nlp.primals_names()[j]) not in expected_jac:
                 assert val == 0
             else:
-                assert val == pytest.approx(expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]])
+                assert val == pytest.approx(
+                    expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]]
+                )
 
     @pytest.mark.unit
     def test_jacobian_equality_only(self, model):
-        """Make sure the equality_only behaviour works as expected.
-        """
+        """Make sure the equality_only behaviour works as expected."""
         m = model
 
         # Add an inequality
@@ -391,7 +402,7 @@ class TestJacobianMethodsWithGreyBox:
         jac, nlp = _get_jacobian_greybox_compatible(m, equality_constraints_only=False)
         assert not hasattr(m, "scaling_factor")
         assert not hasattr(m, "scaling_hint")
-        
+
         expected_jac = {
             ("link_P_in", "egb.inputs[Pin]"): -1.0,
             ("link_c", "egb.inputs[c]"): -1.0,
@@ -400,7 +411,7 @@ class TestJacobianMethodsWithGreyBox:
             ("link_P_out", "egb.outputs[Pout]"): -1.0,
             ("egb.Pout_constraint", "egb.inputs[Pin]"): 1.0,
             ("egb.Pout_constraint", "egb.inputs[c]"): -1.0,  # -4*0.5**2
-            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0, # -4*1e5*2*0.5
+            ("egb.Pout_constraint", "egb.inputs[F]"): -4000.0,  # -4*1e5*2*0.5
             ("egb.Pout_constraint", "egb.outputs[Pout]"): -1.0,
             ("ineq", "Pout"): 1.0,
         }
@@ -411,30 +422,33 @@ class TestJacobianMethodsWithGreyBox:
             if (nlp.constraint_names()[i], nlp.primals_names()[j]) not in expected_jac:
                 assert val == 0
             else:
-                assert val == pytest.approx(expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]])
-        
+                assert val == pytest.approx(
+                    expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]]
+                )
+
         # Test with equality_only=True to make sure the inequality is excluded
         jac, nlp = _get_jacobian_greybox_compatible(m, equality_constraints_only=True)
         jac_coo = jac.tocoo()
         assert len(jac_coo.data) == 9
 
-        # Create a new mapping for constraint names htat leaves out `ineq`
+        # Create a new mapping for constraint names that leaves out `ineq`
         eq_constraints = [c for c in nlp.constraint_names() if not c.startswith("ineq")]
         for i, j, val in zip(jac_coo.row, jac_coo.col, jac_coo.data):
             if (eq_constraints[i], nlp.primals_names()[j]) not in expected_jac:
                 assert val == 0
             else:
-                assert val == pytest.approx(expected_jac[eq_constraints[i], nlp.primals_names()[j]])
+                assert val == pytest.approx(
+                    expected_jac[eq_constraints[i], nlp.primals_names()[j]]
+                )
 
     @pytest.mark.unit
     def test_jacobian_w_ipopt_scaling(self, model):
-        """Make sure the IPOPT scaling behaviour works as expected.
-        """
+        """Make sure the IPOPT scaling behaviour works as expected."""
         m = model
         jac, nlp = _get_jacobian_greybox_compatible(m, include_ipopt_autoscaling=True)
         assert not hasattr(m, "scaling_factor")
         assert not hasattr(m, "scaling_hint")
-        
+
         expected_jac = {
             ("link_P_in", "egb.inputs[Pin]"): -1.0,
             ("link_c", "egb.inputs[c]"): -1.0,
@@ -454,7 +468,9 @@ class TestJacobianMethodsWithGreyBox:
             if (nlp.constraint_names()[i], nlp.primals_names()[j]) not in expected_jac:
                 assert val == 0
             else:
-                assert val == pytest.approx(expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]])
+                assert val == pytest.approx(
+                    expected_jac[nlp.constraint_names()[i], nlp.primals_names()[j]]
+                )
 
     @pytest.mark.unit
     def test_condition_number(self, model):

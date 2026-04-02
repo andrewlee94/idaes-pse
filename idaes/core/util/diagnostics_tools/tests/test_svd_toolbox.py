@@ -38,6 +38,7 @@ from idaes.core.util.diagnostics_tools.svd_toolbox import (
     svd_dense,
     svd_sparse,
 )
+
 # dummy_problem is used as a fixture the tests, but is not picked up by static analysis
 from idaes.core.util.diagnostics_tools.tests.utils import (
     dummy_problem,
