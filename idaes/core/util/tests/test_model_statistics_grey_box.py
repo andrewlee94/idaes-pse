@@ -1905,7 +1905,9 @@ class TestNewStatisticsGreyBox:
     @pytest.mark.unit
     def test_external_variables_set(self, model):
         # Add a cross-block constraint
-        model.b2.cross_cons = pyo.Constraint(expr=model.b1.egb.inputs["c"] == model.b2.v1)
+        model.b2.cross_cons = pyo.Constraint(
+            expr=model.b1.egb.inputs["c"] == model.b2.v1
+        )
 
         ext_vars = external_variables_set(model, include_greybox=True)
         assert len(ext_vars) == 0
@@ -1925,7 +1927,9 @@ class TestNewStatisticsGreyBox:
     @pytest.mark.unit
     def test_number_external_variables(self, model):
         # Add a cross-block constraint
-        model.b2.cross_cons = pyo.Constraint(expr=model.b1.egb.inputs["c"] == model.b2.v1)
+        model.b2.cross_cons = pyo.Constraint(
+            expr=model.b1.egb.inputs["c"] == model.b2.v1
+        )
 
         assert number_external_variables(model, include_greybox=True) == 0
         assert number_external_variables(model.b2, include_greybox=True) == 1
@@ -1997,7 +2001,7 @@ class TestNewStatisticsGreyBox:
                 "b1.egb.inputs[F]",
                 "b1.egb.inputs[P1]",
                 "b1.egb.inputs[P3]",
-                "b1.egb.outputs[Pout]"
+                "b1.egb.outputs[Pout]",
             ]
         assert len(var_set) == 11
         var_set = variables_with_none_value_set(model, include_greybox=False)
@@ -2009,7 +2013,7 @@ class TestNewStatisticsGreyBox:
                 "b1.P2",
                 "b1.Pout",
                 "b1.none_var",
-                "b2.v1"
+                "b2.v1",
             ]
         assert len(var_set) == 7
 
@@ -2034,19 +2038,14 @@ class TestNewStatisticsGreyBox:
                 "b1.large",
                 "b1.small",
                 "b1.egb.inputs[Pin]",
-                "b1.egb.inputs[c]"
+                "b1.egb.inputs[c]",
             ]
         assert len(var_set) == 6
         var_set = variables_with_extreme_values_set(
             model, large=1e5, small=1e-7, zero=1e-10, include_greybox=False
         )
         for v in var_set:
-            assert v.name in [
-                "b1.Pin",
-                "b1.c",
-                "b1.large",
-                "b1.small"
-            ]
+            assert v.name in ["b1.Pin", "b1.c", "b1.large", "b1.small"]
         assert len(var_set) == 4
 
     @pytest.mark.unit
@@ -2054,12 +2053,18 @@ class TestNewStatisticsGreyBox:
         model.b1.large = pyo.Var(initialize=1e6)
         model.b1.small = pyo.Var(initialize=1e-8)
         model.b1.zero = pyo.Var(initialize=0)
-        assert number_variables_with_extreme_values(
-            model, large=1e5, small=1e-7, zero=1e-10, include_greybox=True
-        ) == 6
-        assert number_variables_with_extreme_values(
-            model, large=1e5, small=1e-7, zero=1e-10, include_greybox=False
-        ) == 4
+        assert (
+            number_variables_with_extreme_values(
+                model, large=1e5, small=1e-7, zero=1e-10, include_greybox=True
+            )
+            == 6
+        )
+        assert (
+            number_variables_with_extreme_values(
+                model, large=1e5, small=1e-7, zero=1e-10, include_greybox=False
+            )
+            == 4
+        )
 
 
 @pytest.mark.unit
